@@ -70,13 +70,16 @@ if (patch.missing.length) console.log(`[patch] NO override yet (left as OSM): ${
 const rawDistricts = readRaw("districts.raw.geojson");
 let districts = [];
 if (rawDistricts) {
-  const deduped = dedupeByName(rawDistricts.features.filter(onlyAreas), (f) => nameOf(f.properties));
-  districts = deduped.map((f) => {
+  // Assign the parent state FIRST, then dedupe by name+state — several district
+  // names recur across states (Aurangabad, Hamirpur, Pratapgarh, …), so keying on
+  // name alone would wrongly drop the real ones.
+  const feats = rawDistricts.features.filter(onlyAreas).map((f) => {
     const geometry = simplifyGeometry(f.geometry, TOLERANCE);
     const c = centroidOf(geometry);
     const state = c ? stateAt(c[0], c[1], states) : "";
     return { type: "Feature", properties: { name: nameOf(f.properties), state }, geometry };
   });
+  districts = dedupeByName(feats, (f) => `${f.properties.name}|${f.properties.state}`);
   const orphans = districts.filter((d) => !d.properties.state).length;
   if (orphans) console.log(`[build] ${orphans} districts unmatched to a state (check simplification).`);
 } else {

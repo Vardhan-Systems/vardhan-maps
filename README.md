@@ -9,11 +9,10 @@ Government of India depiction — as **GeoJSON data** plus optional, dependency-
 > **This is not an official or survey-grade map of India.** See
 > [ATTRIBUTION.md](./ATTRIBUTION.md).
 
-> 🚧 **Status: v0.2.** Ships **all 36 states/UTs + 669 districts**, generated from
+> 🚧 **Status: v0.2.** Ships **all 36 states/UTs + 787 districts**, generated from
 > OpenStreetMap, with the GoI border patches applied (J&K includes PoK; Ladakh
-> includes Gilgit-Baltistan + Aksai Chin). **District coverage is not yet complete**
-> for a few states whose districts OSM maps at an irregular admin level (notably
-> Uttar Pradesh, Assam, Delhi) — see [Data coverage](#data-coverage).
+> includes Gilgit-Baltistan + Aksai Chin). Every state now has its districts — see
+> [Data coverage](#data-coverage) for the one remaining edge case.
 
 ## Install
 
@@ -81,15 +80,14 @@ by `scripts/lib/patch.mjs`. See [ROADMAP.md](./ROADMAP.md) for what's done and n
 
 ## Data coverage
 
-Boundaries are generated from OpenStreetMap. Two known gaps, both from OSM itself:
+Boundaries are generated from OpenStreetMap. All 36 states/UTs carry their districts
+(`admin_level=5`), 787 in total. Minor notes:
 
-- **District admin level is inconsistent across states.** Most states map districts
-  at `admin_level=5` (fetched here), but some — **Uttar Pradesh, Assam, Delhi** —
-  map divisions at 5 and tehsils at 6, so a clean district set isn't available at a
-  single level. Those states currently ship with few or no districts. A per-state
-  admin-level mapping is the v0.3 fix (see [ROADMAP.md](./ROADMAP.md)); a handful of
-  border/island districts are also left unassigned to a state.
-- Tiny UTs (Chandigarh, Lakshadweep) may show 1 or 0 districts.
+- **~1 border district** may be left unassigned to a state (`properties.state === ""`)
+  when its centroid falls just outside the simplified state polygon. It's still in the
+  `districts` collection, just not returned by `getDistricts(stateName)`.
+- Single-district UTs (e.g. Chandigarh, Lakshadweep) correctly show one district.
+- District *vintages* differ slightly by OSM currency (newly split districts may lag).
 
 State outlines and GoI border patches are complete for all 36 states/UTs.
 

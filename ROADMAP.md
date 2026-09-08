@@ -13,12 +13,14 @@
 - [ ] Verify names against a canonical list; add ISO `code` per state (only TG/AP coded so far).
 
 ## v0.2.0 — districts (current)
-- [x] admin_level=5 districts fetched per-state (resumable, mirrors) → 669 districts.
-- [x] Centroid → parent-state assignment.
-- [ ] **Per-state admin-level mapping** — UP/Assam/Delhi map districts at level 6/other,
-      not 5, so they're currently sparse/empty. Curate the right level per state.
-- [ ] Re-home the ~8 border/island districts left unassigned to a state.
-- [ ] Multi-resolution data + lazy per-state district loading (the full set is ~1.4 MB).
+- [x] admin_level=5 districts fetched per-state (resumable, mirrors) → **787 districts**.
+- [x] Centroid → parent-state assignment; dedupe by name+state (keeps same-named
+      districts across states).
+- [x] **Closed the UP/Assam/Delhi/Chandigarh holes** — those were transient fetch
+      failures, not a level mismatch (all districts are at level 5). Re-fetched.
+      Dropped a Bangladesh division ("Rangpur") that had leaked into the India query.
+- [ ] Re-home the ~1 border district still unassigned (use point-on-surface, not centroid).
+- [ ] Multi-resolution data + lazy per-state district loading (the full set is ~1.5 MB).
 
 ## v0.3.0 — official-GoI depiction ✅ (J&K/Ladakh)
 - [x] `data/overrides/` for Jammu & Kashmir (+ Azad Kashmir) and Ladakh (+ Gilgit-

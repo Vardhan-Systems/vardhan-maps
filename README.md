@@ -81,13 +81,13 @@ by `scripts/lib/patch.mjs`. See [ROADMAP.md](./ROADMAP.md) for what's done and n
 ## Data coverage
 
 Boundaries are generated from OpenStreetMap. All 36 states/UTs carry their districts
-(`admin_level=5`), 787 in total. Minor notes:
+(`admin_level=5`), **787 in total, every one assigned to its state** (interior
+point-on-surface assignment, so even concave border districts resolve correctly).
+Notes:
 
-- **~1 border district** may be left unassigned to a state (`properties.state === ""`)
-  when its centroid falls just outside the simplified state polygon. It's still in the
-  `districts` collection, just not returned by `getDistricts(stateName)`.
 - Single-district UTs (e.g. Chandigarh, Lakshadweep) correctly show one district.
-- District *vintages* differ slightly by OSM currency (newly split districts may lag).
+- District *vintages* follow OSM currency (a newly split district may lag until OSM
+  catches up); counts track OSM, not a fixed census year.
 
 State outlines and GoI border patches are complete for all 36 states/UTs.
 

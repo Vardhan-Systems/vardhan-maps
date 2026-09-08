@@ -5,7 +5,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { simplifyGeometry } from "./lib/rdp.mjs";
-import { centroidOf, stateAt } from "./lib/assign-state.mjs";
+import { pointOnSurface, stateAt, stateByVertexMajority } from "./lib/assign-state.mjs";
 import { patchGoiBorders, DISPUTED_STATES } from "./lib/patch.mjs";
 
 const RAW = new URL("../data/raw/", import.meta.url).pathname;
@@ -75,8 +75,11 @@ if (rawDistricts) {
   // name alone would wrongly drop the real ones.
   const feats = rawDistricts.features.filter(onlyAreas).map((f) => {
     const geometry = simplifyGeometry(f.geometry, TOLERANCE);
-    const c = centroidOf(geometry);
-    const state = c ? stateAt(c[0], c[1], states) : "";
+    // A guaranteed-interior point resolves to the right state even for concave
+    // border districts; fall back to a vertex-majority vote if it still misses.
+    const p = pointOnSurface(geometry);
+    let state = p ? stateAt(p[0], p[1], states) : "";
+    if (!state) state = stateByVertexMajority(geometry, states);
     return { type: "Feature", properties: { name: nameOf(f.properties), state }, geometry };
   });
   districts = dedupeByName(feats, (f) => `${f.properties.name}|${f.properties.state}`);

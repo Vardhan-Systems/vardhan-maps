@@ -19,7 +19,7 @@
 - [x] **Closed the UP/Assam/Delhi/Chandigarh holes** — those were transient fetch
       failures, not a level mismatch (all districts are at level 5). Re-fetched.
       Dropped a Bangladesh division ("Rangpur") that had leaked into the India query.
-- [ ] Re-home the ~1 border district still unassigned (use point-on-surface, not centroid).
+- [x] Point-on-surface + vertex-majority state assignment → **0 unassigned districts**.
 - [ ] Multi-resolution data + lazy per-state district loading (the full set is ~1.5 MB).
 
 ## v0.3.0 — official-GoI depiction ✅ (J&K/Ladakh)

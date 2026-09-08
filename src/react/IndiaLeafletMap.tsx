@@ -46,6 +46,8 @@ export interface IndiaLeafletMapProps {
   level?: "state" | "district" | "both";
   /** Restrict districts to one state (level "district"/"both"). */
   stateName?: string;
+  /** Restrict districts to several states (e.g. ["Telangana","Andhra Pradesh"]). */
+  stateNames?: string[];
   /** District resolution to lazy-load — "low" (default) or "high". */
   resolution?: Resolution;
   /** Show OSM raster tiles under the boundaries. Default true. */
@@ -81,6 +83,10 @@ export interface IndiaLeafletMapProps {
   zoom?: number;
   /** Show a permanent name label on each boundary (state or district). */
   labels?: boolean;
+  /** Show the default name-on-hover tooltip for boundaries. Default true. Set
+   *  false for a clean map (e.g. live tracking) with no boundary hover text.
+   *  A custom districtTooltip/stateTooltip still shows regardless. */
+  boundaryTooltips?: boolean;
   /** Lock panning/zooming to India (hard bounds + min zoom). Default true. */
   lockToIndia?: boolean;
   /** Grey-out everything outside India's borders. Default true. */
@@ -119,6 +125,9 @@ function ensureChipStyles() {
   const el = document.createElement("style");
   el.id = "vm-chip-styles";
   el.textContent = `
+    /* No focus rectangle around clicked/focused boundary paths. */
+    .leaflet-container path.leaflet-interactive:focus,
+    .leaflet-container path.leaflet-interactive { outline: none; }
     .leaflet-tooltip.vm-chip {
       background:#2563eb;color:#fff;border:none;border-radius:9999px;padding:2px 8px;
       font:600 11px system-ui,sans-serif;box-shadow:0 1px 3px rgba(0,0,0,.35);white-space:nowrap;
@@ -159,10 +168,12 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
   const lock = props.lockToIndia ?? true;
   const fitTo = props.fitTo ?? (lock ? "india" : "data");
   const {
-    stateName, tiles, tileUrl, labels, markers, routes, dataKey,
-    districtFill, stateFill, districtTooltip, stateTooltip,
+    stateName, stateNames, tiles, tileUrl, labels, markers, routes, dataKey,
+    districtFill, stateFill, districtTooltip, stateTooltip, boundaryTooltips,
     onStateClick, onDistrictClick, onMarkerClick,
   } = props;
+  const showNameTip = boundaryTooltips !== false;
+  const stateNamesKey = (stateNames ?? []).join("|");
   const markersKey = JSON.stringify(markers ?? []);
   const routesKey = JSON.stringify(routes ?? []);
 
@@ -230,9 +241,14 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
       const boundary: LType.Layer[] = [];
 
       if (level !== "state") {
-        const feats = stateName
-          ? await loadDistricts(stateName, { resolution })
-          : (await loadAllDistricts({ resolution })).features;
+        let feats;
+        if (stateNames?.length) {
+          feats = (await Promise.all(stateNames.map((s) => loadDistricts(s, { resolution })))).flat();
+        } else if (stateName) {
+          feats = await loadDistricts(stateName, { resolution });
+        } else {
+          feats = (await loadAllDistricts({ resolution })).features;
+        }
         if (cancelled) return;
         const dBase = props.districtStyle ?? {
           color: "#94a3b8", weight: 0.8, fillColor: "#f1f5f9", fillOpacity: level === "both" ? 0 : 0.5,
@@ -247,7 +263,7 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
               const p = f.properties as DistrictProps;
               if (districtTooltip) layer.bindTooltip(districtTooltip(p.name, p), { sticky: true, className: "vm-card" });
               else if (labels) layer.bindTooltip(p.name, { permanent: true, direction: "center", className: "vm-label", opacity: 1 });
-              else layer.bindTooltip(`${p.name}, ${p.state}`, { sticky: true });
+              else if (showNameTip) layer.bindTooltip(`${p.name}, ${p.state}`, { sticky: true });
               if (onDistrictClick) layer.on("click", () => onDistrictClick(p.name, p));
             },
           }),
@@ -267,7 +283,7 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
               const p = f.properties as StateProps;
               if (stateTooltip) layer.bindTooltip(stateTooltip(p.name, p), { sticky: true, className: "vm-card" });
               else if (labels) layer.bindTooltip(p.name, { permanent: true, direction: "center", className: "vm-label", opacity: 1 });
-              else if (level !== "both") layer.bindTooltip(p.name, { sticky: true });
+              else if (showNameTip && level !== "both") layer.bindTooltip(p.name, { sticky: true });
               if (onStateClick) layer.on("click", () => onStateClick(p.name, p));
             },
           }),
@@ -329,7 +345,7 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, level, stateName, resolution, labels, markersKey, routesKey, fitTo, dataKey]);
+  }, [ready, level, stateName, stateNamesKey, resolution, labels, markersKey, routesKey, fitTo, dataKey]);
 
   return <div ref={ref} className={props.className} style={props.style ?? { height: 480, width: "100%" }} />;
 }

@@ -10,6 +10,12 @@ customer/dues heat map):
   card), styled via the built-in `.vm-card` class.
 - **`dataKey`** — bump it when your fill/tooltip data changes to redraw the overlay
   without remounting the map (tiles stay).
+- **`stateNames`** — restrict districts to several states (e.g. Telangana + Andhra
+  Pradesh), not just one.
+- **`boundaryTooltips`** — set `false` to suppress the default name-on-hover
+  tooltip for a clean map (e.g. live tracking); custom tooltips still show.
+- Removed the browser focus-outline rectangle that appeared around a
+  clicked/focused boundary path.
 
 ## 0.3.0
 

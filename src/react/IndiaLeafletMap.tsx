@@ -1,8 +1,21 @@
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type * as LType from "leaflet";
 import type { GeoJsonObject } from "geojson";
-import { loadAllDistricts, loadDistricts, states as allStates, type Resolution } from "../data";
+import { indiaOutline, loadAllDistricts, loadDistricts, states as allStates, type Resolution } from "../data";
+import { bboxOf } from "../core/geo";
 import type { DistrictProps, StateProps } from "../data/types";
+
+/** A point to plot on the map (e.g. a customer, store, city). */
+export interface MapMarker {
+  lat: number;
+  lng: number;
+  /** Popup / tooltip text. */
+  label?: string;
+  /** Fill colour (default blue). */
+  color?: string;
+  /** Circle radius in px (default 5). */
+  radius?: number;
+}
 
 export interface IndiaLeafletMapProps {
   level?: "state" | "district" | "both";
@@ -16,92 +29,182 @@ export interface IndiaLeafletMapProps {
   tileAttribution?: string;
   stateStyle?: LType.PathOptions;
   districtStyle?: LType.PathOptions;
+  /** Your own points to plot on top (lat/lng), each with an optional label. */
+  markers?: MapMarker[];
+  /** Show a permanent name label on each boundary (state or district). */
+  labels?: boolean;
+  /** Lock panning/zooming to India (hard bounds + min zoom). Default true. */
+  lockToIndia?: boolean;
+  /** Grey-out everything outside India's borders. Default true. */
+  mask?: boolean;
+  /** Colour of the outside-India mask. Default light grey. */
+  maskColor?: string;
+  /** HTML for the left of the attribution control (default: vardhansystems). */
+  attributionPrefix?: string;
   onStateClick?: (name: string, props: StateProps) => void;
   onDistrictClick?: (name: string, props: DistrictProps) => void;
+  onMarkerClick?: (marker: MapMarker) => void;
   className?: string;
   style?: CSSProperties;
 }
 
 const OSM_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+// The OSM credit is legally required (ODbL); we phrase it as "built on top of …".
 const OSM_ATTR =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+  'built on top of <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
+const VS_PREFIX =
+  '<a href="https://www.vardhansystems.in/" target="_blank" rel="noopener">vardhansystems</a>';
+
+// [minLng,minLat,maxLng,maxLat] of India incl. islands → Leaflet [[S,W],[N,E]].
+const IN_BBOX = bboxOf({ type: "FeatureCollection", features: [indiaOutline] });
+const IN_BOUNDS: [[number, number], [number, number]] = [
+  [IN_BBOX[1], IN_BBOX[0]],
+  [IN_BBOX[3], IN_BBOX[2]],
+];
+const asMP = (g: typeof indiaOutline.geometry): number[][][][] =>
+  (g.type === "Polygon" ? [g.coordinates] : g.coordinates) as number[][][][];
 
 /**
- * India on a Leaflet slippy map (OSM tiles by default) with the state/district
- * boundaries overlaid. `leaflet` is an optional peer dependency, imported lazily
- * (SSR-safe); districts are also lazy-loaded. Import "leaflet/dist/leaflet.css".
+ * India on a Leaflet slippy map — OSM raster tiles (cities, roads, terrain) by
+ * default with the state/district boundaries overlaid, plus optional name labels
+ * and your own markers. `leaflet` is an optional peer dependency imported lazily
+ * (SSR-safe); districts lazy-load. Remember to import "leaflet/dist/leaflet.css".
+ *
+ * The map is created ONCE (StrictMode-safe deferred teardown); a second effect
+ * redraws the overlays whenever the data props change.
  */
 export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LType.Map | null>(null);
+  const overlayRef = useRef<LType.LayerGroup | null>(null);
+  const lRef = useRef<typeof LType | null>(null);
+  const destroyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [ready, setReady] = useState(0);
 
   const level = props.level ?? "state";
   const resolution = props.resolution ?? "low";
-  const { stateName, tiles, tileUrl, onStateClick, onDistrictClick } = props;
+  const { stateName, tiles, tileUrl, labels, markers, onStateClick, onDistrictClick, onMarkerClick } = props;
+  const markersKey = JSON.stringify(markers ?? []);
 
+  // ── Create the map once (tiles included). Survives StrictMode double-mount. ──
   useEffect(() => {
     let cancelled = false;
+    if (destroyTimer.current) { clearTimeout(destroyTimer.current); destroyTimer.current = null; }
     void (async () => {
       const mod = await import("leaflet");
       const L = ((mod as { default?: typeof LType }).default ?? mod) as typeof LType;
-      if (cancelled || !ref.current || mapRef.current) return;
+      lRef.current = L;
+      const el = ref.current;
+      // Reuse the surviving instance; never create a second map on the container.
+      if (cancelled || !el || mapRef.current || (el as unknown as { _leaflet_id?: number })._leaflet_id != null) return;
 
-      const map = L.map(ref.current, { scrollWheelZoom: true });
-      mapRef.current = map;
+      const lock = props.lockToIndia ?? true;
+      const bounds = L.latLngBounds(IN_BOUNDS).pad(0.03);
+      const map = L.map(el, {
+        scrollWheelZoom: true,
+        maxBounds: lock ? bounds : undefined,
+        maxBoundsViscosity: lock ? 1 : 0,
+      });
+      map.fitBounds(bounds);
+      if (lock) map.setMinZoom(map.getBoundsZoom(bounds));
 
+      // Attribution: "vardhansystems · built on top of OpenStreetMap".
+      map.attributionControl.setPrefix(props.attributionPrefix ?? VS_PREFIX);
       if (tiles !== false) {
         L.tileLayer(tileUrl ?? OSM_URL, { attribution: props.tileAttribution ?? OSM_ATTR, maxZoom: 19 }).addTo(map);
       }
 
-      const layers: LType.Layer[] = [];
+      // Grey-out everything outside India: a world rectangle with India punched
+      // out as holes (Leaflet's default evenodd fill-rule makes inner rings holes).
+      if (props.mask ?? true) {
+        const world: number[][] = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
+        const holes = asMP(indiaOutline.geometry).map((poly) => poly[0]);
+        L.geoJSON({ type: "Polygon", coordinates: [world, ...holes] } as unknown as GeoJsonObject, {
+          interactive: false,
+          style: { stroke: false, weight: 0, fillColor: props.maskColor ?? "#e5e7eb", fillOpacity: 0.92 },
+        }).addTo(map);
+      }
+
+      mapRef.current = map;
+      setReady((n) => n + 1); // let the overlay effect run now the map exists
+    })();
+    return () => {
+      cancelled = true;
+      destroyTimer.current = setTimeout(() => {
+        try { mapRef.current?.remove(); } catch { /* container already detached */ }
+        mapRef.current = null;
+        overlayRef.current = null;
+      }, 0);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Redraw boundaries + markers whenever the data props change. ──────────────
+  useEffect(() => {
+    const L = lRef.current;
+    const map = mapRef.current;
+    if (!L || !map) return;
+    let cancelled = false;
+    void (async () => {
+      const boundary: LType.Layer[] = [];
 
       if (level !== "state") {
         const feats = stateName
           ? await loadDistricts(stateName, { resolution })
           : (await loadAllDistricts({ resolution })).features;
         if (cancelled) return;
-        layers.push(
+        boundary.push(
           L.geoJSON({ type: "FeatureCollection", features: feats } as unknown as GeoJsonObject, {
             style: props.districtStyle ?? {
               color: "#94a3b8", weight: 0.8, fillColor: "#f1f5f9", fillOpacity: level === "both" ? 0 : 0.5,
             },
             onEachFeature: (f, layer) => {
               const p = f.properties as DistrictProps;
-              layer.bindTooltip(`${p.name}, ${p.state}`, { sticky: true });
+              if (labels) layer.bindTooltip(p.name, { permanent: true, direction: "center", className: "vm-label", opacity: 1 });
+              else layer.bindTooltip(`${p.name}, ${p.state}`, { sticky: true });
               if (onDistrictClick) layer.on("click", () => onDistrictClick(p.name, p));
             },
-          }).addTo(map),
+          }),
         );
       }
       if (level !== "district") {
-        layers.push(
+        boundary.push(
           L.geoJSON({ type: "FeatureCollection", features: allStates.features } as unknown as GeoJsonObject, {
             style: props.stateStyle ?? {
               color: "#475569", weight: 1, fillColor: "#e2e8f0", fillOpacity: level === "both" ? 0 : 0.4,
             },
             onEachFeature: (f, layer) => {
               const p = f.properties as StateProps;
-              if (level !== "both") layer.bindTooltip(p.name, { sticky: true });
+              if (labels) layer.bindTooltip(p.name, { permanent: true, direction: "center", className: "vm-label", opacity: 1 });
+              else if (level !== "both") layer.bindTooltip(p.name, { sticky: true });
               if (onStateClick) layer.on("click", () => onStateClick(p.name, p));
             },
-          }).addTo(map),
+          }),
         );
       }
+      if (cancelled) return;
+
+      const group = L.layerGroup([...boundary]);
+      for (const m of markers ?? []) {
+        const cm = L.circleMarker([m.lat, m.lng], {
+          radius: m.radius ?? 5, color: "#ffffff", weight: 1.5, fillColor: m.color ?? "#2563eb", fillOpacity: 1,
+        });
+        if (m.label) cm.bindTooltip(m.label, { direction: "top" });
+        if (onMarkerClick) cm.on("click", () => onMarkerClick(m));
+        cm.addTo(group);
+      }
+
+      overlayRef.current?.remove();
+      group.addTo(map);
+      overlayRef.current = group;
 
       try {
-        map.fitBounds(L.featureGroup(layers).getBounds(), { padding: [10, 10] });
-      } catch {
-        map.setView([22.5, 80], 5);
-      }
+        map.fitBounds(L.featureGroup(boundary).getBounds(), { padding: [10, 10] });
+      } catch { /* no bounds yet */ }
     })();
-
-    return () => {
-      cancelled = true;
-      mapRef.current?.remove();
-      mapRef.current = null;
-    };
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [level, stateName, resolution, tiles, tileUrl]);
+  }, [ready, level, stateName, resolution, labels, markersKey]);
 
   return <div ref={ref} className={props.className} style={props.style ?? { height: 480, width: "100%" }} />;
 }

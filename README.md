@@ -104,6 +104,26 @@ and click handlers.
 
 State properties include the **ISO 3166-2:IN `code`** (e.g. `IN-KL`, `IN-TG`).
 
+**Leaflet mode** (`IndiaMap mode="leaflet"` / `IndiaLeafletMap`) adds a real OSM
+basemap (cities, roads, terrain) under the boundaries and, by default, keeps the
+view **India-only**: `lockToIndia` (hard pan/zoom bounds) and `mask` (greys out
+everything outside India) are on unless you disable them. It also supports:
+
+```tsx
+<IndiaMap
+  mode="leaflet"
+  level="both"
+  labels               // permanent state/district name labels
+  markers={[{ lat: 17.385, lng: 78.4867, label: "Hyderabad", color: "#ef4444" }]}
+  onMarkerClick={(m) => console.log(m.label)}
+/>
+```
+
+The bottom-right attribution shows **vardhansystems · built on top of OpenStreetMap**
+(the OSM credit is kept as ODbL requires); override the branding with
+`attributionPrefix`. Note: OSM basemap labels are in local scripts — an English
+label option is on the roadmap.
+
 ### Live demo
 
 A runnable Vite demo (choropleth → click a state to drill into its districts,

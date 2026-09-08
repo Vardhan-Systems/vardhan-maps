@@ -1,4 +1,6 @@
+import type { Feature } from "geojson";
 import statesLow from "./generated/states.low.json";
+import indiaJson from "./generated/india.json";
 import metaJson from "./generated/meta.json";
 import slugsJson from "./generated/slugs.json";
 import { loaders as lowLoaders } from "./generated/districts/low";
@@ -9,6 +11,7 @@ import type {
   DistrictFeature,
   StateCollection,
   StateFeature,
+  StateGeometry,
 } from "./types";
 
 export * from "./types";
@@ -19,6 +22,10 @@ export type Resolution = (typeof RESOLUTIONS)[number];
 
 /** State / UT boundaries at the default (low) resolution — eagerly bundled. */
 export const states: StateCollection = statesLow as unknown as StateCollection;
+
+/** India's national outline (all states dissolved) — used for the region mask. */
+export const indiaOutline: Feature<StateGeometry, { name: string }> =
+  indiaJson as unknown as Feature<StateGeometry, { name: string }>;
 
 /** How the bundled dataset was produced (see ATTRIBUTION.md). */
 export const meta: DatasetMeta = metaJson as DatasetMeta;

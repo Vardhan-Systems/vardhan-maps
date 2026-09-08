@@ -8,6 +8,7 @@
 // Run: `pnpm data:build`.
 
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import polygonClipping from "polygon-clipping";
 import { simplifyGeometry } from "./lib/rdp.mjs";
 import { pointOnSurface, stateAt, stateByVertexMajority } from "./lib/assign-state.mjs";
 import { patchGoiBorders, DISPUTED_STATES } from "./lib/patch.mjs";
@@ -120,6 +121,35 @@ for (const [res, tol] of Object.entries(RESOLUTIONS)) {
   writeFileSync(`${dir}index.d.ts`, dtsLoader);
   console.log(`[build] ${res}: ${states.length} states, ${present.length} district files (tol ${tol})`);
 }
+
+// ── India national outline (dissolve of all states) — for the region mask ─────
+// Union every state into one MultiPolygon so the map can grey-out everything
+// outside India without internal state-border slivers.
+const asMP = (g) => (g.type === "Polygon" ? [g.coordinates] : g.coordinates);
+// Union coarse (0.02°) states — raw union overwhelms polygon-clipping. Then drop
+// tiny union artefacts by ACTUAL area (shoelace), so coastal sliver "islands" in
+// the sea don't punch false holes in the mask.
+// Lakshadweep's OSM admin_level=4 boundary is a large MARITIME polygon (mostly
+// open sea), which would punch a big sea-hole in the mask. Its actual islands are
+// sub-pixel at country zoom, so exclude it from the national outline (it remains
+// in the state data). Every other state/UT hugs real land.
+const outlineStates = rawStates.filter((f) => f.properties.name !== "Lakshadweep");
+const parts = outlineStates.map((f) => asMP(simplifyGeometry(f.geometry, 0.008)));
+const merged = polygonClipping.union(parts[0], ...parts.slice(1));
+const ringArea = (ring) => {
+  let s = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) s += ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1];
+  return Math.abs(s) / 2;
+};
+// Keep the mainland + any island/cluster ≥ ~0.02 deg² (Lakshadweep/A&N survive;
+// thin coastal slivers do not).
+const polys = merged.filter((poly) => ringArea(poly[0]) >= 0.02);
+const indiaGeom = simplifyGeometry({ type: "MultiPolygon", coordinates: polys }, 0.02);
+writeFileSync(
+  `${OUT}india.json`,
+  JSON.stringify({ type: "Feature", properties: { name: "India" }, geometry: indiaGeom }),
+);
+console.log(`[build] india outline: ${indiaGeom.coordinates.length} polygons (from ${merged.length} merged)`);
 
 // ── Index + meta ─────────────────────────────────────────────────────────────
 writeFileSync(`${OUT}slugs.json`, JSON.stringify(stateSlugs));

@@ -38,7 +38,17 @@
 - [x] CI (`ci.yml`) + tag-driven npm publish (`release.yml`).
 - [x] Runnable Vite demo in `examples/demo` (choropleth, drill-in, resolution, tooltips).
 
+## v0.2 additions ✅ (more)
+- [x] India-only Leaflet mode: `lockToIndia` (bounds) + `mask` (grey-out neighbours,
+      from a dissolved national outline) on by default.
+- [x] Custom attribution: "vardhansystems · built on top of OpenStreetMap"
+      (`attributionPrefix` to override; OSM credit kept per ODbL).
+- [x] `markers` (plot your own points) + `labels` (permanent name labels) in Leaflet.
+
 ## Next
+- [ ] **English basemap labels** — OSM raster tiles show local scripts (Hindi/Urdu/…);
+      offer an English-label tile option (Carto/MapTiler) or a label-free basemap +
+      our own English labels.
 - [ ] Publish to npm (see README → Publishing).
 - [ ] Verify state/district names against a canonical list; name-normalisation utils.
 - [ ] Optional MapLibre helper; per-year district vintages; a hosted demo site.

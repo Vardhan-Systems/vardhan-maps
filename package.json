@@ -1,6 +1,6 @@
 {
   "name": "vardhan-maps",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Standard India map — state + district boundaries (aligned to the official Government of India depiction) as GeoJSON data, plus optional dependency-free SVG and Leaflet/React renderers. Built on OpenStreetMap.",
   "license": "MIT",
   "author": "Vardhan Systems",

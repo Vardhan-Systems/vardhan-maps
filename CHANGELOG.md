@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0
+
+Choropleth + custom tooltips on the Leaflet map (for data-driven maps like a
+customer/dues heat map):
+
+- **`districtFill` / `stateFill`** — per-feature style overrides (fill by a value).
+- **`districtTooltip` / `stateTooltip`** — custom hover-tooltip HTML (e.g. a stats
+  card), styled via the built-in `.vm-card` class.
+- **`dataKey`** — bump it when your fill/tooltip data changes to redraw the overlay
+  without remounting the map (tiles stay).
+
 ## 0.3.0
 
 Live-tracking additions to the Leaflet map:

@@ -119,6 +119,23 @@ everything outside India) are on unless you disable them. It also supports:
 />
 ```
 
+**Live tracking / routes.** Draw GPS trails with `routes` (polylines) and update
+`markers`/`routes` frequently without the map re-zooming, via `fitTo`:
+
+```tsx
+<IndiaMap
+  mode="leaflet"
+  level="state"
+  lockToIndia={false}
+  fitTo="data"          // frame the trail/points once; live updates don't re-zoom
+  routes={[{ points: gpsTrail, color: "#16a34a", weight: 4, label: "Route" }]}
+  markers={livePositions}   // update this array as positions come in
+/>
+```
+
+`fitTo` is `"india"` (default when locked), `"data"` (fit to markers/routes once),
+or `"none"` (you set `center`/`zoom`).
+
 The attribution uses Leaflet's defaults (`Leaflet | © OpenStreetMap contributors`);
 override the prefix with `attributionPrefix` if you want your own branding (keep the
 OSM credit, which the ODbL requires). Note: OSM basemap labels are in local scripts —

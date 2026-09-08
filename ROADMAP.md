@@ -44,6 +44,8 @@
 - [x] Attribution uses Leaflet defaults; `attributionPrefix` prop to override
       branding (OSM credit kept per ODbL).
 - [x] `markers` (plot your own points) + `labels` (permanent name labels) in Leaflet.
+- [x] `routes` (GPS-trail polylines) + `fitTo` live-update framing (fit once, don't
+      re-zoom on live updates) + `center`/`zoom` — for live tracking / delivery runs.
 
 ## Next
 - [ ] **English basemap labels** — OSM raster tiles show local scripts (Hindi/Urdu/…);

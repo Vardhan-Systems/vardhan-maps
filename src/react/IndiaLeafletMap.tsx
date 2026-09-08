@@ -17,6 +17,16 @@ export interface MapMarker {
   radius?: number;
 }
 
+/** A polyline to draw (e.g. a GPS trail / delivery route). */
+export interface MapRoute {
+  points: { lat: number; lng: number }[];
+  color?: string;
+  weight?: number;
+  opacity?: number;
+  /** Hover tooltip text. */
+  label?: string;
+}
+
 export interface IndiaLeafletMapProps {
   level?: "state" | "district" | "both";
   /** Restrict districts to one state (level "district"/"both"). */
@@ -31,6 +41,19 @@ export interface IndiaLeafletMapProps {
   districtStyle?: LType.PathOptions;
   /** Your own points to plot on top (lat/lng), each with an optional label. */
   markers?: MapMarker[];
+  /** Polylines to draw (GPS trails / routes) — for live tracking, delivery runs, etc. */
+  routes?: MapRoute[];
+  /**
+   * How the map frames itself:
+   *  - "india" (default when locked): keep the India view, never auto-fit to data.
+   *  - "data": fit to the markers/routes ONCE (won't re-zoom on live updates).
+   *  - "none": never auto-fit — you control the view via `center`/`zoom`.
+   */
+  fitTo?: "india" | "data" | "none";
+  /** Initial view centre [lat, lng] (used when you don't want auto-fit). */
+  center?: [number, number];
+  /** Initial zoom (with `center`). */
+  zoom?: number;
   /** Show a permanent name label on each boundary (state or district). */
   labels?: boolean;
   /** Lock panning/zooming to India (hard bounds + min zoom). Default true. */
@@ -78,12 +101,16 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
   const overlayRef = useRef<LType.LayerGroup | null>(null);
   const lRef = useRef<typeof LType | null>(null);
   const destroyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fittedData = useRef(false); // fit-to-data happens once (live updates don't re-zoom)
   const [ready, setReady] = useState(0);
 
   const level = props.level ?? "state";
   const resolution = props.resolution ?? "low";
-  const { stateName, tiles, tileUrl, labels, markers, onStateClick, onDistrictClick, onMarkerClick } = props;
+  const lock = props.lockToIndia ?? true;
+  const fitTo = props.fitTo ?? (lock ? "india" : "data");
+  const { stateName, tiles, tileUrl, labels, markers, routes, onStateClick, onDistrictClick, onMarkerClick } = props;
   const markersKey = JSON.stringify(markers ?? []);
+  const routesKey = JSON.stringify(routes ?? []);
 
   // ── Create the map once (tiles included). Survives StrictMode double-mount. ──
   useEffect(() => {
@@ -97,14 +124,14 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
       // Reuse the surviving instance; never create a second map on the container.
       if (cancelled || !el || mapRef.current || (el as unknown as { _leaflet_id?: number })._leaflet_id != null) return;
 
-      const lock = props.lockToIndia ?? true;
       const bounds = L.latLngBounds(IN_BOUNDS).pad(0.03);
       const map = L.map(el, {
         scrollWheelZoom: true,
         maxBounds: lock ? bounds : undefined,
         maxBoundsViscosity: lock ? 1 : 0,
       });
-      map.fitBounds(bounds);
+      if (props.center) map.setView(props.center, props.zoom ?? 5);
+      else map.fitBounds(bounds);
       if (lock) map.setMinZoom(map.getBoundsZoom(bounds));
 
       // Keep Leaflet's default attribution unless the consumer overrides the prefix.
@@ -184,6 +211,19 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
       if (cancelled) return;
 
       const group = L.layerGroup([...boundary]);
+
+      // Routes (GPS trails / delivery runs) as polylines.
+      const data: LType.Layer[] = [];
+      for (const r of routes ?? []) {
+        if (r.points.length < 2) continue;
+        const line = L.polyline(r.points.map((p) => [p.lat, p.lng]), {
+          color: r.color ?? "#2563eb", weight: r.weight ?? 3, opacity: r.opacity ?? 0.9,
+        });
+        if (r.label) line.bindTooltip(r.label, { sticky: true });
+        line.addTo(group);
+        data.push(line);
+      }
+      // Your own points.
       for (const m of markers ?? []) {
         const cm = L.circleMarker([m.lat, m.lng], {
           radius: m.radius ?? 5, color: "#ffffff", weight: 1.5, fillColor: m.color ?? "#2563eb", fillOpacity: 1,
@@ -191,19 +231,26 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
         if (m.label) cm.bindTooltip(m.label, { direction: "top" });
         if (onMarkerClick) cm.on("click", () => onMarkerClick(m));
         cm.addTo(group);
+        data.push(cm);
       }
 
       overlayRef.current?.remove();
       group.addTo(map);
       overlayRef.current = group;
 
-      try {
-        map.fitBounds(L.featureGroup(boundary).getBounds(), { padding: [10, 10] });
-      } catch { /* no bounds yet */ }
+      // Framing: "data" fits to markers/routes ONCE (live updates don't re-zoom);
+      // "india"/"none" leave the view set by the create effect.
+      if (fitTo === "data" && !fittedData.current) {
+        const target = data.length ? L.featureGroup(data) : L.featureGroup(boundary);
+        try {
+          map.fitBounds(target.getBounds(), { padding: [24, 24] });
+          fittedData.current = true;
+        } catch { /* no bounds yet */ }
+      }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, level, stateName, resolution, labels, markersKey]);
+  }, [ready, level, stateName, resolution, labels, markersKey, routesKey, fitTo]);
 
   return <div ref={ref} className={props.className} style={props.style ?? { height: 480, width: "100%" }} />;
 }

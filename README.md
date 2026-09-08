@@ -128,13 +128,22 @@ everything outside India) are on unless you disable them. It also supports:
   level="state"
   lockToIndia={false}
   fitTo="data"          // frame the trail/points once; live updates don't re-zoom
-  routes={[{ points: gpsTrail, color: "#16a34a", weight: 4, label: "Route" }]}
-  markers={livePositions}   // update this array as positions come in
+  routes={[{
+    points: gpsTrail,   // [{ lat, lng, label?: "09:52 am" }, …]
+    color: "#2563eb", weight: 3,
+    showPoints: true, pointColor: "#ef4444",   // a red dot per GPS ping
+  }]}
+  markers={livePositions.map((p) => ({
+    ...p, permanent: true,   // always-on name chip (e.g. the executive's name)
+  }))}
 />
 ```
 
-`fitTo` is `"india"` (default when locked), `"data"` (fit to markers/routes once),
-or `"none"` (you set `center`/`zoom`).
+- `MapMarker.permanent` — show the label as an always-on chip (not just hover).
+- `MapRoute.showPoints` — draw a dot at every point; `pointColor`/`pointRadius`
+  style them and each point's `label` shows on hover.
+- `fitTo` is `"india"` (default when locked), `"data"` (fit to markers/routes once),
+  or `"none"` (you set `center`/`zoom`).
 
 The attribution uses Leaflet's defaults (`Leaflet | © OpenStreetMap contributors`);
 override the prefix with `attributionPrefix` if you want your own branding (keep the

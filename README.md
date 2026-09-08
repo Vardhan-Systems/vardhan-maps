@@ -92,6 +92,27 @@ import "leaflet/dist/leaflet.css"; // only if you use mode="leaflet"
 `level`, `stateName`, `resolution`, per-feature styling, choropleth `fill` hooks,
 and click handlers.
 
+**Tooltips.** `IndiaSvgMap` (and `IndiaMap` in SVG mode) takes a `tooltip` prop:
+`tooltip` (boolean) shows the feature name; a function returns custom content:
+
+```tsx
+<IndiaMap
+  level="state"
+  tooltip={(c) => <b>{c.name} · {(c.props as { code?: string }).code}</b>}
+/>
+```
+
+State properties include the **ISO 3166-2:IN `code`** (e.g. `IN-KL`, `IN-TG`).
+
+### Live demo
+
+A runnable Vite demo (choropleth → click a state to drill into its districts,
+resolution toggle, tooltips) lives in [`examples/demo`](./examples/demo):
+
+```bash
+cd examples/demo && pnpm install && pnpm dev
+```
+
 > **Module format:** ESM-only (so per-state district chunks can code-split). Works
 > in every modern bundler (Vite, webpack, Next) and Node ≥18. From CommonJS, use a
 > dynamic `await import("vardhan-maps/data")`.
@@ -118,6 +139,20 @@ Notes:
   catches up); counts track OSM, not a fixed census year.
 
 State outlines and GoI border patches are complete for all 36 states/UTs.
+
+## Development
+
+```bash
+pnpm install
+pnpm typecheck     # tsc --noEmit
+pnpm test          # vitest (data loaders, SVG, projection, pipeline)
+pnpm build         # tsup → dist/
+pnpm data:build    # regenerate src/data/generated from data/raw
+```
+
+CI (`.github/workflows/ci.yml`) runs typecheck + test + build on every push/PR.
+Pushing a `v*` tag triggers `release.yml` to publish to npm (needs an `NPM_TOKEN`
+repo secret).
 
 ## Publishing (maintainers)
 

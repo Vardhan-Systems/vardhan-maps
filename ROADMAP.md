@@ -31,11 +31,17 @@
       Arunachal Pradesh already maps within India in OSM, so needs no override.
 - [ ] Independent review of each correction against the official depiction.
 
+## v0.2 additions ✅
+- [x] ISO 3166-2:IN `code` on all 36 states.
+- [x] Hover tooltips in `IndiaSvgMap` (boolean or custom render prop).
+- [x] Tests (vitest: data loaders, SVG render, projection, pipeline libs) — 21 passing.
+- [x] CI (`ci.yml`) + tag-driven npm publish (`release.yml`).
+- [x] Runnable Vite demo in `examples/demo` (choropleth, drill-in, resolution, tooltips).
+
 ## Next
-- [ ] Publish to npm (see README → Publishing). Add ISO `code` per state.
+- [ ] Publish to npm (see README → Publishing).
 - [ ] Verify state/district names against a canonical list; name-normalisation utils.
-- [ ] Tests (projection, point-in-polygon, simplify, loaders) + CI publish.
-- [ ] Examples site; optional MapLibre helper; per-year district vintages.
+- [ ] Optional MapLibre helper; per-year district vintages; a hosted demo site.
 
 ## Known limitations
 - Boundaries are an approximation of the GoI depiction, not an official/survey map.

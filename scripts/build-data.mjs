@@ -21,6 +21,20 @@ const OUT = new URL("../src/data/generated/", import.meta.url).pathname;
 const RESOLUTIONS = { low: 0.01, high: 0.003 };
 
 const DENYLIST = new Set(["Rangpur Division"]); // Bangladesh, leaks from the India area query
+
+// ISO 3166-2:IN codes, keyed by our canonical state name.
+const ISO_CODES = {
+  "Andaman and Nicobar Islands": "IN-AN", "Andhra Pradesh": "IN-AP", "Arunachal Pradesh": "IN-AR",
+  "Assam": "IN-AS", "Bihar": "IN-BR", "Chandigarh": "IN-CH", "Chhattisgarh": "IN-CT",
+  "Dadra and Nagar Haveli and Daman and Diu": "IN-DH", "Delhi": "IN-DL", "Goa": "IN-GA",
+  "Gujarat": "IN-GJ", "Haryana": "IN-HR", "Himachal Pradesh": "IN-HP", "Jammu and Kashmir": "IN-JK",
+  "Jharkhand": "IN-JH", "Karnataka": "IN-KA", "Kerala": "IN-KL", "Ladakh": "IN-LA",
+  "Lakshadweep": "IN-LD", "Madhya Pradesh": "IN-MP", "Maharashtra": "IN-MH", "Manipur": "IN-MN",
+  "Meghalaya": "IN-ML", "Mizoram": "IN-MZ", "Nagaland": "IN-NL", "Odisha": "IN-OD",
+  "Puducherry": "IN-PY", "Punjab": "IN-PB", "Rajasthan": "IN-RJ", "Sikkim": "IN-SK",
+  "Tamil Nadu": "IN-TN", "Telangana": "IN-TG", "Tripura": "IN-TR", "Uttar Pradesh": "IN-UP",
+  "Uttarakhand": "IN-UT", "West Bengal": "IN-WB",
+};
 const nameOf = (t = {}) => t["name:en"] || t.name || "";
 const onlyAreas = (f) => f.geometry && /Polygon$/.test(f.geometry.type);
 const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -45,8 +59,14 @@ const readRaw = (name) => JSON.parse(readFileSync(`${RAW}${name}`, "utf8"));
 let rawStates = dedupe(
   readRaw("states.raw.geojson").features.filter(onlyAreas).filter((f) => !DENYLIST.has(nameOf(f.properties))),
   (f) => nameOf(f.properties),
-).map((f) => ({ type: "Feature", properties: { name: nameOf(f.properties) }, geometry: f.geometry }));
+).map((f) => {
+  const name = nameOf(f.properties);
+  const props = ISO_CODES[name] ? { name, code: ISO_CODES[name] } : { name };
+  return { type: "Feature", properties: props, geometry: f.geometry };
+});
 rawStates.sort((a, b) => a.properties.name.localeCompare(b.properties.name));
+const missingCodes = rawStates.filter((f) => !f.properties.code).map((f) => f.properties.name);
+if (missingCodes.length) console.log(`[build] WARN no ISO code for: ${missingCodes.join(", ")}`);
 const patch = patchGoiBorders(rawStates, OVERRIDES);
 rawStates = patch.features;
 

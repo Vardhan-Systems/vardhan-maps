@@ -1,5 +1,5 @@
-import { districts as allDistricts, states as allStates } from "../data";
-import type { DistrictProps, StateProps } from "../data/types";
+import { states as allStates } from "../data";
+import type { DistrictCollection, DistrictProps, StateProps } from "../data/types";
 import { bboxOf } from "../core/geo";
 import { fitProjection } from "./project";
 import { featurePaths } from "./paths";
@@ -16,17 +16,20 @@ export interface RenderIndiaSvgOptions {
   padding?: number;
   /** Which boundaries to draw. Default "state". */
   level?: "state" | "district" | "both";
-  /** Restrict districts to one state (level "district"/"both"). */
+  /**
+   * District data — REQUIRED when `level` is "district" or "both", since districts
+   * are loaded lazily. Get it with `loadAllDistricts()` / `loadDistricts(state)`
+   * from `vardhan-maps/data` and pass the result (or its `.features`) here.
+   */
+  districts?: DistrictCollection | { features: DistrictCollection["features"] };
+  /** Restrict districts to one state. */
   stateName?: string;
   stateStyle?: PathStyle;
   districtStyle?: PathStyle;
-  /** Choropleth hook: return a fill for a given state (overrides stateStyle.fill). */
   stateFill?: (name: string, props: StateProps) => string | undefined;
-  /** Choropleth hook: return a fill for a given district. */
   districtFill?: (name: string, props: DistrictProps) => string | undefined;
   /** Emit a <title> per feature so hovering shows its name. Default true. */
   titles?: boolean;
-  /** class attribute on the root <svg>. */
   className?: string;
 }
 
@@ -46,32 +49,34 @@ function pathEl(d: string, fill: string, stroke: string, w: number, title?: stri
 
 /**
  * Render India (or one state's districts) to a standalone SVG string — no DOM,
- * no dependencies. Suitable for choropleths, infographics, server-side rendering.
+ * no dependencies. States are bundled; pass district data via `options.districts`
+ * for the "district"/"both" levels.
  */
 export function renderIndiaSvg(options: RenderIndiaSvgOptions = {}): string {
   const width = options.width ?? 900;
   const height = options.height ?? 1000;
   const level = options.level ?? "state";
   const titles = options.titles ?? true;
-
   const stateStyle = { ...DEFAULT_STATE, ...options.stateStyle };
   const districtStyle = { ...DEFAULT_DISTRICT, ...options.districtStyle };
 
-  const districtFeatures = options.stateName
-    ? allDistricts.features.filter(
-        (f) => f.properties.state.toLowerCase() === options.stateName!.toLowerCase(),
-      )
-    : allDistricts.features;
+  let districtFeatures = options.districts?.features ?? [];
+  if (options.stateName) {
+    const n = options.stateName.toLowerCase();
+    districtFeatures = districtFeatures.filter((f) => f.properties.state.toLowerCase() === n);
+  }
+  if ((level === "district" || level === "both") && districtFeatures.length === 0) {
+    throw new Error(
+      'renderIndiaSvg: level "' + level + '" needs district data — pass options.districts ' +
+        "(from loadAllDistricts()/loadDistricts()).",
+    );
+  }
 
-  // Frame to the full country for state/both; to the chosen districts otherwise.
   const frameFc =
-    level === "district"
-      ? { type: "FeatureCollection" as const, features: districtFeatures }
-      : allStates;
+    level === "district" ? { type: "FeatureCollection" as const, features: districtFeatures } : allStates;
   const projection = fitProjection(bboxOf(frameFc), width, height, options.padding ?? 12);
 
   const parts: string[] = [];
-
   if (level === "district" || level === "both") {
     for (const { d, properties } of featurePaths(districtFeatures, projection)) {
       const fill = options.districtFill?.(properties.name, properties) ?? districtStyle.fill;
@@ -80,7 +85,6 @@ export function renderIndiaSvg(options: RenderIndiaSvgOptions = {}): string {
     }
   }
   if (level === "state" || level === "both") {
-    // On "both", states draw as outlines on top (transparent fill).
     const stateFillDefault = level === "both" ? "none" : stateStyle.fill;
     for (const { d, properties } of featurePaths(allStates.features, projection)) {
       const fill = options.stateFill?.(properties.name, properties) ?? stateFillDefault;

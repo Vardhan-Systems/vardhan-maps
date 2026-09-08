@@ -1,9 +1,13 @@
 // Build the shipped dataset from the raw OSM dumps (data/raw/, produced by
-// `pnpm data:fetch`): dedupe + normalise → assign districts to states → simplify
-// → apply GoI border patches → write src/data/generated/{states,districts,meta}.json.
-// Run: `pnpm data:build`. Tune tolerance with SIMPLIFY_TOLERANCE (degrees).
+// `pnpm data:fetch`): dedupe + normalise → assign districts to states (from RAW
+// geometry) → apply GoI patches → emit MULTI-RESOLUTION output:
+//   src/data/generated/states.<res>.json          (eager: states.low is bundled)
+//   src/data/generated/districts/<res>/<slug>.js   (lazy: one ESM module per state)
+//   src/data/generated/districts/<res>/index.js    (a static loader map for code-splitting)
+//   src/data/generated/{slugs,meta}.json
+// Run: `pnpm data:build`.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { simplifyGeometry } from "./lib/rdp.mjs";
 import { pointOnSurface, stateAt, stateByVertexMajority } from "./lib/assign-state.mjs";
 import { patchGoiBorders, DISPUTED_STATES } from "./lib/patch.mjs";
@@ -11,98 +15,105 @@ import { patchGoiBorders, DISPUTED_STATES } from "./lib/patch.mjs";
 const RAW = new URL("../data/raw/", import.meta.url).pathname;
 const OVERRIDES = new URL("../data/overrides/", import.meta.url).pathname;
 const OUT = new URL("../src/data/generated/", import.meta.url).pathname;
-const TOLERANCE = Number(process.env.SIMPLIFY_TOLERANCE ?? 0.01);
 
-// Relations that leak in from the India area query but are not Indian states.
-const DENYLIST = new Set(["Rangpur Division"]);
+// Named resolution tiers → Douglas–Peucker tolerance (degrees). `low` is the
+// eager/default overview tier; `high` is for zoomed-in single-state detail.
+const RESOLUTIONS = { low: 0.01, high: 0.003 };
 
-const nameOf = (tags = {}) => tags["name:en"] || tags.name || "";
-const onlyAreas = (f) => f.geometry && (f.geometry.type === "Polygon" || f.geometry.type === "MultiPolygon");
+const DENYLIST = new Set(["Rangpur Division"]); // Bangladesh, leaks from the India area query
+const nameOf = (t = {}) => t["name:en"] || t.name || "";
+const onlyAreas = (f) => f.geometry && /Polygon$/.test(f.geometry.type);
+const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 function vertexCount(geom) {
-  let n = 0;
   const rings = geom.type === "Polygon" ? geom.coordinates : geom.coordinates.flat();
-  for (const r of rings) n += r.length;
-  return n;
+  return rings.reduce((n, r) => n + r.length, 0);
 }
-
-/** Keep one feature per key — the one with the most vertices (the real boundary). */
-function dedupeByName(features, keyFn) {
+function dedupe(features, keyFn) {
   const best = new Map();
   for (const f of features) {
-    const key = keyFn(f);
-    if (!key) continue;
-    const cur = best.get(key);
-    if (!cur || vertexCount(f.geometry) > vertexCount(cur.geometry)) best.set(key, f);
+    const k = keyFn(f);
+    if (!k) continue;
+    const cur = best.get(k);
+    if (!cur || vertexCount(f.geometry) > vertexCount(cur.geometry)) best.set(k, f);
   }
   return [...best.values()];
 }
+const readRaw = (name) => JSON.parse(readFileSync(`${RAW}${name}`, "utf8"));
 
-function readRaw(name) {
-  const path = `${RAW}${name}`;
-  return existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : null;
-}
+// ── Raw states (deduped, GoI-patched) ────────────────────────────────────────
+let rawStates = dedupe(
+  readRaw("states.raw.geojson").features.filter(onlyAreas).filter((f) => !DENYLIST.has(nameOf(f.properties))),
+  (f) => nameOf(f.properties),
+).map((f) => ({ type: "Feature", properties: { name: nameOf(f.properties) }, geometry: f.geometry }));
+rawStates.sort((a, b) => a.properties.name.localeCompare(b.properties.name));
+const patch = patchGoiBorders(rawStates, OVERRIDES);
+rawStates = patch.features;
 
+// ── Raw districts, assigned to a state from RAW geometry, deduped by name+state ─
+const rawDistricts = dedupe(
+  readRaw("districts.raw.geojson").features.filter(onlyAreas).map((f) => {
+    const p = pointOnSurface(f.geometry);
+    let state = p ? stateAt(p[0], p[1], rawStates) : "";
+    if (!state) state = stateByVertexMajority(f.geometry, rawStates);
+    return { type: "Feature", properties: { name: nameOf(f.properties), state }, geometry: f.geometry };
+  }),
+  (f) => `${f.properties.name}|${f.properties.state}`,
+);
+const unassigned = rawDistricts.filter((d) => !d.properties.state).length;
+if (unassigned) console.log(`[build] WARN ${unassigned} districts unassigned to a state`);
+
+const stateSlugs = rawStates.map((f) => ({ name: f.properties.name, slug: slugify(f.properties.name) }));
+
+// ── Emit per resolution tier ─────────────────────────────────────────────────
+rmSync(`${OUT}districts`, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
-// ── States ───────────────────────────────────────────────────────────────────
-const rawStates = readRaw("states.raw.geojson");
-if (!rawStates) {
-  console.error("Missing data/raw/states.raw.geojson — run `pnpm data:fetch states` first.");
-  process.exit(1);
-}
-let states = dedupeByName(
-  rawStates.features.filter(onlyAreas).filter((f) => !DENYLIST.has(nameOf(f.properties))),
-  (f) => nameOf(f.properties),
-).map((f) => ({
-  type: "Feature",
-  properties: { name: nameOf(f.properties) },
-  geometry: simplifyGeometry(f.geometry, TOLERANCE),
-}));
-states.sort((a, b) => a.properties.name.localeCompare(b.properties.name));
+// From src/data/generated/districts/<res>/index.d.ts → src/data/types.ts is ../../../
+const dtsLoader = `import type { DistrictCollection } from "../../../types";
+export type DistrictLoader = () => Promise<{ default: DistrictCollection }>;
+export declare const loaders: Record<string, DistrictLoader>;
+`;
 
-const patch = patchGoiBorders(states, OVERRIDES);
-states = patch.features;
-if (patch.applied.length) console.log(`[patch] applied GoI override: ${patch.applied.join(", ")}`);
-if (patch.missing.length) console.log(`[patch] NO override yet (left as OSM): ${patch.missing.join(", ")}`);
+for (const [res, tol] of Object.entries(RESOLUTIONS)) {
+  const dir = `${OUT}districts/${res}/`;
+  mkdirSync(dir, { recursive: true });
 
-// ── Districts (optional until fetched) ────────────────────────────────────────
-const rawDistricts = readRaw("districts.raw.geojson");
-let districts = [];
-if (rawDistricts) {
-  // Assign the parent state FIRST, then dedupe by name+state — several district
-  // names recur across states (Aurangabad, Hamirpur, Pratapgarh, …), so keying on
-  // name alone would wrongly drop the real ones.
-  const feats = rawDistricts.features.filter(onlyAreas).map((f) => {
-    const geometry = simplifyGeometry(f.geometry, TOLERANCE);
-    // A guaranteed-interior point resolves to the right state even for concave
-    // border districts; fall back to a vertex-majority vote if it still misses.
-    const p = pointOnSurface(geometry);
-    let state = p ? stateAt(p[0], p[1], states) : "";
-    if (!state) state = stateByVertexMajority(geometry, states);
-    return { type: "Feature", properties: { name: nameOf(f.properties), state }, geometry };
-  });
-  districts = dedupeByName(feats, (f) => `${f.properties.name}|${f.properties.state}`);
-  const orphans = districts.filter((d) => !d.properties.state).length;
-  if (orphans) console.log(`[build] ${orphans} districts unmatched to a state (check simplification).`);
-} else {
-  console.log("[build] no districts.raw yet — building STATES only. Run `pnpm data:fetch districts`.");
+  // states.<res>.json
+  const states = rawStates.map((f) => ({ ...f, geometry: simplifyGeometry(f.geometry, tol) }));
+  writeFileSync(`${OUT}states.${res}.json`, JSON.stringify({ type: "FeatureCollection", features: states }));
+
+  // one ESM module per state: districts/<res>/<slug>.js
+  const present = [];
+  for (const { name, slug } of stateSlugs) {
+    const feats = rawDistricts
+      .filter((d) => d.properties.state === name)
+      .map((d) => ({ ...d, geometry: simplifyGeometry(d.geometry, tol) }));
+    if (!feats.length) continue;
+    present.push(slug);
+    writeFileSync(`${dir}${slug}.js`, `export default ${JSON.stringify({ type: "FeatureCollection", features: feats })}\n`);
+  }
+
+  // static loader map (each specifier literal → bundlers code-split per state)
+  const entries = present.map((s) => `  ${JSON.stringify(s)}: () => import("./${s}.js"),`).join("\n");
+  writeFileSync(`${dir}index.js`, `export const loaders = {\n${entries}\n};\n`);
+  writeFileSync(`${dir}index.d.ts`, dtsLoader);
+  console.log(`[build] ${res}: ${states.length} states, ${present.length} district files (tol ${tol})`);
 }
 
-// ── Write ─────────────────────────────────────────────────────────────────────
-const write = (name, obj) => writeFileSync(`${OUT}${name}`, JSON.stringify(obj));
-write("states.json", { type: "FeatureCollection", features: states });
-write("districts.json", { type: "FeatureCollection", features: districts });
-write("meta.json", {
-  version: process.env.DATA_VERSION ?? "0.1.0",
+// ── Index + meta ─────────────────────────────────────────────────────────────
+writeFileSync(`${OUT}slugs.json`, JSON.stringify(stateSlugs));
+writeFileSync(`${OUT}meta.json`, JSON.stringify({
+  version: process.env.DATA_VERSION ?? "0.2.0",
   generated: new Date().toISOString().slice(0, 10),
-  source: "OpenStreetMap via Overpass (admin_level=4/5), osmtogeojson, Douglas–Peucker simplified",
-  simplifyToleranceDeg: TOLERANCE,
+  source: "OpenStreetMap via Overpass (admin_level=4/5), Douglas–Peucker simplified",
+  resolutions: Object.keys(RESOLUTIONS),
+  defaultResolution: "low",
   goiBordersPatched: patch.patched,
   note: patch.patched
-    ? "Full India. GoI disputed-border overrides applied. Not an official/survey map."
+    ? "Full India, multi-resolution. GoI disputed-border overrides applied. Not an official/survey map."
     : `Full India. GoI overrides MISSING for: ${DISPUTED_STATES.join(", ")}. Not an official/survey map.`,
-  stateCount: states.length,
-  districtCount: districts.length,
-});
-console.log(`[build] states=${states.length} districts=${districts.length} → ${OUT}`);
+  stateCount: rawStates.length,
+  districtCount: rawDistricts.length,
+}, null, 2));
+console.log(`[build] states=${rawStates.length} districts=${rawDistricts.length} tiers=${Object.keys(RESOLUTIONS).join(",")}`);

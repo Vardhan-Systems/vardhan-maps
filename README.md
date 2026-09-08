@@ -10,9 +10,9 @@ Government of India depiction — as **GeoJSON data** plus optional, dependency-
 > [ATTRIBUTION.md](./ATTRIBUTION.md).
 
 > 🚧 **Status: v0.2.** Ships **all 36 states/UTs + 787 districts**, generated from
-> OpenStreetMap, with the GoI border patches applied (J&K includes PoK; Ladakh
-> includes Gilgit-Baltistan + Aksai Chin). Every state now has its districts — see
-> [Data coverage](#data-coverage) for the one remaining edge case.
+> OpenStreetMap, with GoI border patches (J&K includes PoK; Ladakh includes
+> Gilgit-Baltistan + Aksai Chin). **Two resolution tiers** (`low`/`high`) and
+> **lazy per-state district loading** keep it light. Not yet on npm.
 
 ## Install
 
@@ -24,49 +24,77 @@ pnpm add leaflet react
 
 The package ships three independent entry points, so you only pull what you use.
 
-## Use the data (no renderer)
+## Use the data
+
+**States are eager** (bundled, tiny). **Districts load lazily**, per state, at a
+resolution you choose — `"low"` (default, overview) or `"high"` (zoomed-in detail):
 
 ```ts
-import { states, districts, getState, getDistricts, meta } from "vardhan-maps/data";
+import {
+  states, getState, getStates,   // eager states (low res)
+  loadDistricts, loadAllDistricts, loadStates,
+  meta, RESOLUTIONS,
+} from "vardhan-maps/data";
 
-states.features.length;           // FeatureCollection of states/UTs
-getDistricts("Telangana");        // DistrictFeature[]
-getState("Andhra Pradesh");       // StateFeature | undefined
-meta.goiBordersPatched;           // dataset provenance
+states.features.length;                         // 36 states/UTs, no async
+getState("Andhra Pradesh");                     // StateFeature | undefined
+
+await loadDistricts("Telangana");               // just this state's chunk (low)
+await loadDistricts("Kerala", { resolution: "high" });
+await loadAllDistricts();                        // every district (787), low res
+await loadStates("high");                        // higher-detail state outlines
+
+meta.resolutions;                                // ["low","high"]
+meta.goiBordersPatched;                          // true
 ```
 
-Every feature is standard GeoJSON — drop it straight into Leaflet, D3, MapLibre,
-Mapbox, turf, etc. Properties: states `{ name, code? }`, districts `{ name, state }`.
+Only the chunks you request are fetched, so a country overview stays lightweight
+while a single-state drill-in can pull `high` detail on demand. Every feature is
+standard GeoJSON — drop it into Leaflet, D3, MapLibre, Mapbox, turf, etc.
+Properties: states `{ name, code? }`, districts `{ name, state }`.
 
 ## Render an SVG (dependency-free)
 
+States render with no async; for districts, pass data you've loaded:
+
 ```ts
 import { renderIndiaSvg } from "vardhan-maps/svg";
+import { loadAllDistricts } from "vardhan-maps/data";
 
-const svg = renderIndiaSvg({
-  level: "state",              // "state" | "district" | "both"
-  width: 900, height: 1000,
-  stateFill: (name) => (name === "Telangana" ? "#2563eb" : "#e2e8f0"), // choropleth
-});
-// → "<svg …>…</svg>"  (server-render it, or set innerHTML)
+// State choropleth (no district data needed):
+renderIndiaSvg({ level: "state", stateFill: (n) => (n === "Telangana" ? "#2563eb" : "#e2e8f0") });
+
+// District map — pass loaded districts:
+const districts = await loadAllDistricts();
+renderIndiaSvg({ level: "both", districts, width: 900, height: 1000 });
+// → "<svg …>…</svg>"
 ```
 
 ## React
+
+The components lazy-load districts for you — just pass `resolution`:
 
 ```tsx
 import { IndiaMap } from "vardhan-maps/react";
 import "leaflet/dist/leaflet.css"; // only if you use mode="leaflet"
 
-// Tile-less inline SVG (default):
-<IndiaMap level="state" onStateClick={(name) => console.log(name)} />
+// Tile-less inline SVG (default); districts fetched on demand:
+<IndiaMap level="both" resolution="low" onDistrictClick={(name) => console.log(name)} />
+
+// One state's districts at high detail:
+<IndiaMap level="district" stateName="Kerala" resolution="high" />
 
 // Leaflet slippy map with OSM tiles:
 <IndiaMap mode="leaflet" level="both" style={{ height: 520 }} />
 ```
 
 `IndiaSvgMap` and `IndiaLeafletMap` are also exported directly. Both support
-`level`, `stateName` (drill into one state's districts), per-feature styling,
-choropleth `fill` hooks, and click handlers.
+`level`, `stateName`, `resolution`, per-feature styling, choropleth `fill` hooks,
+and click handlers.
+
+> **Module format:** ESM-only (so per-state district chunks can code-split). Works
+> in every modern bundler (Vite, webpack, Next) and Node ≥18. From CommonJS, use a
+> dynamic `await import("vardhan-maps/data")`.
 
 ## Regenerating the data
 
@@ -90,6 +118,41 @@ Notes:
   catches up); counts track OSM, not a fixed census year.
 
 State outlines and GoI border patches are complete for all 36 states/UTs.
+
+## Publishing (maintainers)
+
+The package builds on `prepublishOnly`, ships only `dist` + docs, and is public
+(`publishConfig.access = "public"`). First, confirm the name is free on npm:
+
+```bash
+npm view vardhan-maps version   # "npm error 404" means the name is available
+```
+
+If it's taken, publish under a scope instead (rename to `@vardhan-systems/maps`
+in `package.json`; scoped names stay free).
+
+### With npm
+
+```bash
+npm login                       # once
+npm version patch               # bump 0.2.0 → 0.2.1 (also tags git)
+npm publish                     # runs the build via prepublishOnly
+# npm publish --otp=123456      # if you have 2FA enabled
+npm publish --dry-run           # inspect the tarball without publishing
+```
+
+### With pnpm
+
+```bash
+pnpm login                      # once (same npm registry/credentials)
+pnpm version patch
+pnpm publish                    # builds + publishes; verifies a clean git tree
+# pnpm publish --no-git-checks  # to skip the clean-tree check
+pnpm publish --dry-run          # inspect only
+```
+
+Both read the same `~/.npmrc` auth, so you only need to log in once. After
+publishing, install anywhere with `npm i vardhan-maps` / `pnpm add vardhan-maps`.
 
 ## License
 

@@ -31,8 +31,10 @@ export interface DatasetMeta {
   generated: string;
   /** Upstream source, always OpenStreetMap for now. */
   source: string;
-  /** Simplification tolerance (Douglas–Peucker, in degrees) applied. */
-  simplifyToleranceDeg: number;
+  /** Available resolution tiers, e.g. ["low","high"]. */
+  resolutions: string[];
+  /** The tier bundled eagerly / used when none is specified. */
+  defaultResolution: string;
   /** True once GoI disputed-border corrections have been applied. */
   goiBordersPatched: boolean;
   /** Human note about coverage / caveats. */

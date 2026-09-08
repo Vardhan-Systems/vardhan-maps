@@ -18,5 +18,6 @@ export type {
   StateGeometry,
   DatasetMeta,
 } from "./data/types";
+export type { Resolution } from "./data";
 
-export const VERSION = "0.0.1";
+export const VERSION = "0.2.0";

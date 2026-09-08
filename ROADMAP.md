@@ -20,7 +20,10 @@
       failures, not a level mismatch (all districts are at level 5). Re-fetched.
       Dropped a Bangladesh division ("Rangpur") that had leaked into the India query.
 - [x] Point-on-surface + vertex-majority state assignment → **0 unassigned districts**.
-- [ ] Multi-resolution data + lazy per-state district loading (the full set is ~1.5 MB).
+- [x] **Multi-resolution + lazy per-state loading.** Two tiers (`low` 0.01°, `high`
+      0.003°); states eager, districts lazy via `loadDistricts(state, { resolution })`
+      / `loadAllDistricts()` (esbuild code-splits one chunk per state). ESM-only so
+      the chunks can split. `renderIndiaSvg` takes `districts`; React auto-loads them.
 
 ## v0.3.0 — official-GoI depiction ✅ (J&K/Ladakh)
 - [x] `data/overrides/` for Jammu & Kashmir (+ Azad Kashmir) and Ladakh (+ Gilgit-
@@ -28,11 +31,13 @@
       Arunachal Pradesh already maps within India in OSM, so needs no override.
 - [ ] Independent review of each correction against the official depiction.
 
-## v1.0.0
-- [ ] Stable API, examples site, tests (projection, PIP, simplify), CI publish.
-- [ ] Optional: MapLibre helper, name-normalisation utilities, per-year district vintages.
+## Next
+- [ ] Publish to npm (see README → Publishing). Add ISO `code` per state.
+- [ ] Verify state/district names against a canonical list; name-normalisation utils.
+- [ ] Tests (projection, point-in-polygon, simplify, loaders) + CI publish.
+- [ ] Examples site; optional MapLibre helper; per-year district vintages.
 
 ## Known limitations
-- Sample data only until v0.1.
 - Boundaries are an approximation of the GoI depiction, not an official/survey map.
-- Full district GeoJSON is large; multi-resolution + lazy loading is planned (v0.2).
+- District vintages track OSM currency (a newly split district may lag).
+- ESM-only (CommonJS users load via dynamic `import()`).

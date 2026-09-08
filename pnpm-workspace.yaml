@@ -1,0 +1,4 @@
+# Single-package repo. This file carries pnpm settings (pnpm v11 no longer reads
+# the "pnpm" field in package.json). esbuild (via tsup) needs its native binary.
+allowBuilds:
+  esbuild: true

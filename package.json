@@ -1,0 +1,86 @@
+{
+  "name": "vardhan-maps",
+  "version": "0.0.1",
+  "description": "Standard India map — state + district boundaries (aligned to the official Government of India depiction) as GeoJSON data, plus optional dependency-free SVG and Leaflet/React renderers. Built on OpenStreetMap.",
+  "license": "MIT",
+  "author": "Vardhan Systems",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "ATTRIBUTION.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./data": {
+      "types": "./dist/data/index.d.ts",
+      "import": "./dist/data/index.js",
+      "require": "./dist/data/index.cjs"
+    },
+    "./svg": {
+      "types": "./dist/svg/index.d.ts",
+      "import": "./dist/svg/index.js",
+      "require": "./dist/svg/index.cjs"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js",
+      "require": "./dist/react/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "data:fetch": "node scripts/fetch-osm.mjs",
+    "data:build": "node scripts/build-data.mjs",
+    "prepublishOnly": "pnpm run build"
+  },
+  "peerDependencies": {
+    "leaflet": ">=1.9",
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "leaflet": { "optional": true },
+    "react": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/geojson": "^7946.0.14",
+    "@types/leaflet": "^1.9.12",
+    "@types/react": "^18.3.12",
+    "leaflet": "^1.9.4",
+    "osmtogeojson": "^3.0.0-beta.5",
+    "react": "^18.3.1",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3"
+  },
+  "keywords": [
+    "india",
+    "map",
+    "india-map",
+    "geojson",
+    "boundaries",
+    "states",
+    "districts",
+    "openstreetmap",
+    "osm",
+    "leaflet",
+    "react",
+    "svg",
+    "choropleth"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vardhansystems/vardhan-maps.git"
+  },
+  "homepage": "https://github.com/vardhansystems/vardhan-maps#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}

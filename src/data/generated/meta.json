@@ -1,0 +1,10 @@
+{
+  "version": "0.0.1-sample",
+  "generated": "2026-09-08",
+  "source": "OpenStreetMap (Nominatim + Overpass admin_level=4/5), Douglas–Peucker simplified",
+  "simplifyToleranceDeg": 0.01,
+  "goiBordersPatched": false,
+  "note": "SAMPLE dataset — Telangana + Andhra Pradesh only. Full India (all states + districts, GoI-patched) is produced by scripts/build-data.mjs. Not an official map of India.",
+  "stateCount": 2,
+  "districtCount": 61
+}

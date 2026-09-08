@@ -119,10 +119,10 @@ everything outside India) are on unless you disable them. It also supports:
 />
 ```
 
-The bottom-right attribution shows **vardhansystems · built on top of OpenStreetMap**
-(the OSM credit is kept as ODbL requires); override the branding with
-`attributionPrefix`. Note: OSM basemap labels are in local scripts — an English
-label option is on the roadmap.
+The attribution uses Leaflet's defaults (`Leaflet | © OpenStreetMap contributors`);
+override the prefix with `attributionPrefix` if you want your own branding (keep the
+OSM credit, which the ODbL requires). Note: OSM basemap labels are in local scripts —
+an English label option is on the roadmap.
 
 ### Live demo
 

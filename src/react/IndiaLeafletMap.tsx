@@ -39,7 +39,7 @@ export interface IndiaLeafletMapProps {
   mask?: boolean;
   /** Colour of the outside-India mask. Default light grey. */
   maskColor?: string;
-  /** HTML for the left of the attribution control (default: vardhansystems). */
+  /** Override the attribution-control prefix (defaults to Leaflet's own). */
   attributionPrefix?: string;
   onStateClick?: (name: string, props: StateProps) => void;
   onDistrictClick?: (name: string, props: DistrictProps) => void;
@@ -49,11 +49,10 @@ export interface IndiaLeafletMapProps {
 }
 
 const OSM_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
-// The OSM credit is legally required (ODbL); we phrase it as "built on top of …".
+// Standard OSM attribution (required by the ODbL). Leaflet's own "Leaflet" prefix
+// is left as-is unless the consumer overrides it with `attributionPrefix`.
 const OSM_ATTR =
-  'built on top of <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
-const VS_PREFIX =
-  '<a href="https://www.vardhansystems.in/" target="_blank" rel="noopener">vardhansystems</a>';
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 // [minLng,minLat,maxLng,maxLat] of India incl. islands → Leaflet [[S,W],[N,E]].
 const IN_BBOX = bboxOf({ type: "FeatureCollection", features: [indiaOutline] });
@@ -108,8 +107,8 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
       map.fitBounds(bounds);
       if (lock) map.setMinZoom(map.getBoundsZoom(bounds));
 
-      // Attribution: "vardhansystems · built on top of OpenStreetMap".
-      map.attributionControl.setPrefix(props.attributionPrefix ?? VS_PREFIX);
+      // Keep Leaflet's default attribution unless the consumer overrides the prefix.
+      if (props.attributionPrefix != null) map.attributionControl.setPrefix(props.attributionPrefix);
       if (tiles !== false) {
         L.tileLayer(tileUrl ?? OSM_URL, { attribution: props.tileAttribution ?? OSM_ATTR, maxZoom: 19 }).addTo(map);
       }

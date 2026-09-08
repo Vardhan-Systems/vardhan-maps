@@ -41,8 +41,8 @@
 ## v0.2 additions ✅ (more)
 - [x] India-only Leaflet mode: `lockToIndia` (bounds) + `mask` (grey-out neighbours,
       from a dissolved national outline) on by default.
-- [x] Custom attribution: "vardhansystems · built on top of OpenStreetMap"
-      (`attributionPrefix` to override; OSM credit kept per ODbL).
+- [x] Attribution uses Leaflet defaults; `attributionPrefix` prop to override
+      branding (OSM credit kept per ODbL).
 - [x] `markers` (plot your own points) + `labels` (permanent name labels) in Leaflet.
 
 ## Next

@@ -9,9 +9,11 @@ Government of India depiction — as **GeoJSON data** plus optional, dependency-
 > **This is not an official or survey-grade map of India.** See
 > [ATTRIBUTION.md](./ATTRIBUTION.md).
 
-> 🚧 **Status: v0 (early).** The bundled data is currently a **sample**
-> (Telangana + Andhra Pradesh) that proves the renderers end-to-end. Full-India
-> data is produced by the data pipeline (see [Roadmap](./ROADMAP.md)).
+> 🚧 **Status: v0.2.** Ships **all 36 states/UTs + 669 districts**, generated from
+> OpenStreetMap, with the GoI border patches applied (J&K includes PoK; Ladakh
+> includes Gilgit-Baltistan + Aksai Chin). **District coverage is not yet complete**
+> for a few states whose districts OSM maps at an irregular admin level (notably
+> Uttar Pradesh, Assam, Delhi) — see [Data coverage](#data-coverage).
 
 ## Install
 
@@ -76,6 +78,20 @@ pnpm data:build    # normalise → simplify → GoI patch → src/data/generated
 
 The GoI border corrections live in `data/overrides/<state>.geojson` and are applied
 by `scripts/lib/patch.mjs`. See [ROADMAP.md](./ROADMAP.md) for what's done and next.
+
+## Data coverage
+
+Boundaries are generated from OpenStreetMap. Two known gaps, both from OSM itself:
+
+- **District admin level is inconsistent across states.** Most states map districts
+  at `admin_level=5` (fetched here), but some — **Uttar Pradesh, Assam, Delhi** —
+  map divisions at 5 and tehsils at 6, so a clean district set isn't available at a
+  single level. Those states currently ship with few or no districts. A per-state
+  admin-level mapping is the v0.3 fix (see [ROADMAP.md](./ROADMAP.md)); a handful of
+  border/island districts are also left unassigned to a state.
+- Tiny UTs (Chandigarh, Lakshadweep) may show 1 or 0 districts.
+
+State outlines and GoI border patches are complete for all 36 states/UTs.
 
 ## License
 

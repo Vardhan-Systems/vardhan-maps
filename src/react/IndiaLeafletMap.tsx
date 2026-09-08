@@ -5,26 +5,41 @@ import { indiaOutline, loadAllDistricts, loadDistricts, states as allStates, typ
 import { bboxOf } from "../core/geo";
 import type { DistrictProps, StateProps } from "../data/types";
 
-/** A point to plot on the map (e.g. a customer, store, city). */
+/** A point to plot on the map (e.g. a customer, store, city, live position). */
 export interface MapMarker {
   lat: number;
   lng: number;
-  /** Popup / tooltip text. */
+  /** Label text — hover tooltip by default, or an always-on chip if `permanent`. */
   label?: string;
+  /** Show `label` as an always-on chip (e.g. an executive's name). */
+  permanent?: boolean;
   /** Fill colour (default blue). */
   color?: string;
   /** Circle radius in px (default 5). */
   radius?: number;
 }
 
+/** One point of a route; `label` shows on hover when the route draws its points. */
+export interface MapRoutePoint {
+  lat: number;
+  lng: number;
+  label?: string;
+}
+
 /** A polyline to draw (e.g. a GPS trail / delivery route). */
 export interface MapRoute {
-  points: { lat: number; lng: number }[];
+  points: MapRoutePoint[];
   color?: string;
   weight?: number;
   opacity?: number;
-  /** Hover tooltip text. */
+  /** Hover tooltip text for the line itself. */
   label?: string;
+  /** Draw a dot at every point (e.g. each GPS ping). */
+  showPoints?: boolean;
+  /** Colour of the per-point dots (default = the line colour). */
+  pointColor?: string;
+  /** Radius of the per-point dots in px (default 3). */
+  pointRadius?: number;
 }
 
 export interface IndiaLeafletMapProps {
@@ -86,6 +101,23 @@ const IN_BOUNDS: [[number, number], [number, number]] = [
 const asMP = (g: typeof indiaOutline.geometry): number[][][][] =>
   (g.type === "Polygon" ? [g.coordinates] : g.coordinates) as number[][][][];
 
+// Style the always-on marker chip (`permanent` markers) as a small pill. Injected
+// once globally (Leaflet builds tooltip DOM outside React). Consumers can restyle
+// `.leaflet-tooltip.vm-chip`.
+function ensureChipStyles() {
+  if (typeof document === "undefined" || document.getElementById("vm-chip-styles")) return;
+  const el = document.createElement("style");
+  el.id = "vm-chip-styles";
+  el.textContent = `
+    .leaflet-tooltip.vm-chip {
+      background:#2563eb;color:#fff;border:none;border-radius:9999px;padding:2px 8px;
+      font:600 11px system-ui,sans-serif;box-shadow:0 1px 3px rgba(0,0,0,.35);white-space:nowrap;
+    }
+    .leaflet-tooltip.vm-chip::before{display:none}
+  `;
+  document.head.appendChild(el);
+}
+
 /**
  * India on a Leaflet slippy map — OSM raster tiles (cities, roads, terrain) by
  * default with the state/district boundaries overlaid, plus optional name labels
@@ -120,6 +152,7 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
       const mod = await import("leaflet");
       const L = ((mod as { default?: typeof LType }).default ?? mod) as typeof LType;
       lRef.current = L;
+      ensureChipStyles();
       const el = ref.current;
       // Reuse the surviving instance; never create a second map on the container.
       if (cancelled || !el || mapRef.current || (el as unknown as { _leaflet_id?: number })._leaflet_id != null) return;
@@ -212,23 +245,37 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
 
       const group = L.layerGroup([...boundary]);
 
-      // Routes (GPS trails / delivery runs) as polylines.
+      // Routes (GPS trails / delivery runs) as polylines, with optional per-point
+      // dots (e.g. each GPS ping) that show their `label` (timestamp) on hover.
       const data: LType.Layer[] = [];
       for (const r of routes ?? []) {
-        if (r.points.length < 2) continue;
-        const line = L.polyline(r.points.map((p) => [p.lat, p.lng]), {
-          color: r.color ?? "#2563eb", weight: r.weight ?? 3, opacity: r.opacity ?? 0.9,
-        });
-        if (r.label) line.bindTooltip(r.label, { sticky: true });
-        line.addTo(group);
-        data.push(line);
+        if (r.points.length >= 2) {
+          const line = L.polyline(r.points.map((p) => [p.lat, p.lng]), {
+            color: r.color ?? "#2563eb", weight: r.weight ?? 3, opacity: r.opacity ?? 0.9,
+          });
+          if (r.label) line.bindTooltip(r.label, { sticky: true });
+          line.addTo(group);
+          data.push(line);
+        }
+        if (r.showPoints) {
+          for (const p of r.points) {
+            const dot = L.circleMarker([p.lat, p.lng], {
+              radius: r.pointRadius ?? 3, color: "#ffffff", weight: 1,
+              fillColor: r.pointColor ?? r.color ?? "#2563eb", fillOpacity: 1,
+            });
+            if (p.label) dot.bindTooltip(p.label, { direction: "top" });
+            dot.addTo(group);
+            data.push(dot);
+          }
+        }
       }
-      // Your own points.
+      // Your own points. `permanent` shows the label as an always-on chip.
       for (const m of markers ?? []) {
         const cm = L.circleMarker([m.lat, m.lng], {
           radius: m.radius ?? 5, color: "#ffffff", weight: 1.5, fillColor: m.color ?? "#2563eb", fillOpacity: 1,
         });
-        if (m.label) cm.bindTooltip(m.label, { direction: "top" });
+        if (m.label && m.permanent) cm.bindTooltip(m.label, { permanent: true, direction: "top", className: "vm-chip", opacity: 1 });
+        else if (m.label) cm.bindTooltip(m.label, { direction: "top" });
         if (onMarkerClick) cm.on("click", () => onMarkerClick(m));
         cm.addTo(group);
         data.push(cm);

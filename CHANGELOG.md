@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0
+
+Live-tracking additions to the Leaflet map:
+
+- **Marker name chips** — `MapMarker.permanent` shows the label as an always-on
+  pill (e.g. an executive's name), not just on hover.
+- **Route point dots** — `MapRoute.showPoints` draws a dot at every GPS point;
+  `pointColor` / `pointRadius` style them, and each point's `label` (e.g. a
+  timestamp) shows on hover. New `MapRoutePoint` type.
+
 ## 0.2.0 — first public release
 
 Standard India map built on OpenStreetMap: state + district boundaries as GeoJSON

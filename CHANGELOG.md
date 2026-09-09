@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.8.0
+
+- **`vardhan-maps/react-native`** — a new React Native renderer, `<IndiaMapNative />`,
+  the native twin of the web `IndiaLeafletMap`. Renders the **same** self-hosted
+  grey vector basemap (the `pmtiles` from `vectorBasemapStyle()`, resolved
+  **natively** by MapLibre Native — no JS `addProtocol` needed) under India
+  state/district boundaries, with the outside-region **mask**, **choropleth**
+  fills (`districtFill`/`stateFill`), **markers** (with permanent name chips),
+  **routes** (with per-ping dots), **fit-to-data** (`fitTo`/`fitKey`), region
+  **lock** (`lockBounds`), and press callbacks — full parity with the web props.
+  - Built on [`@maplibre/maplibre-react-native`](https://maplibre.org/maplibre-react-native/)
+    (v11 API: `Map` / `Camera` / `GeoJSONSource` / unified `<Layer>`) + `react-native`,
+    both **optional peers**. Needs MapLibre Android **11.7.0+** for native pmtiles
+    (met by maplibre-react-native ≥11). Android-first; iOS untested.
+  - The basemap style and GeoJSON data are shared with the web renderer, so both
+    engines stay in sync. No leaflet/maplibre-gl code is pulled into the RN bundle.
+
 ## 0.7.0
 
 - **`fitKey`** prop (Leaflet map, `fitTo="data"`): re-frame the data whenever the

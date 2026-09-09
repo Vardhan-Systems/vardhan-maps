@@ -1,6 +1,6 @@
 {
   "name": "vardhan-maps",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Standard India map built on OpenStreetMap: state + district boundaries (aligned to the official Government of India depiction) as GeoJSON, dependency-free SVG + Leaflet/React renderers, and an optional self-hosted light-grey vector basemap (roads + labels, no POI) that works out of the box.",
   "license": "MIT",
   "author": "Vardhan Systems",
@@ -30,6 +30,10 @@
     "./react": {
       "types": "./dist/react/index.d.ts",
       "import": "./dist/react/index.js"
+    },
+    "./react-native": {
+      "types": "./dist/react-native/index.d.ts",
+      "import": "./dist/react-native/index.js"
     }
   },
   "scripts": {
@@ -45,16 +49,24 @@
   },
   "peerDependencies": {
     "@maplibre/maplibre-gl-leaflet": ">=0.0.19",
+    "@maplibre/maplibre-react-native": ">=10",
     "leaflet": ">=1.9",
     "maplibre-gl": ">=3 <5",
     "pmtiles": ">=3",
-    "react": ">=18"
+    "react": ">=18",
+    "react-native": ">=0.73"
   },
   "peerDependenciesMeta": {
     "leaflet": {
       "optional": true
     },
     "react": {
+      "optional": true
+    },
+    "react-native": {
+      "optional": true
+    },
+    "@maplibre/maplibre-react-native": {
       "optional": true
     },
     "maplibre-gl": {
@@ -69,6 +81,7 @@
   },
   "devDependencies": {
     "@maplibre/maplibre-gl-leaflet": "^0.1.4",
+    "@maplibre/maplibre-react-native": "^11.3.10",
     "@types/geojson": "^7946.0.14",
     "@types/leaflet": "^1.9.12",
     "@types/react": "^18.3.12",
@@ -78,6 +91,7 @@
     "pmtiles": "^4.5.0",
     "polygon-clipping": "^0.15.7",
     "react": "^18.3.1",
+    "react-native": "0.86.0",
     "tsup": "^8.3.5",
     "typescript": "^5.6.3",
     "vitest": "^2.1.8"

@@ -15,6 +15,7 @@ export default defineConfig({
     "data/index": "src/data/index.ts",
     "svg/index": "src/svg/index.ts",
     "react/index": "src/react/index.ts",
+    "react-native/index": "src/react-native/index.ts",
   },
   format: ["esm"],
   dts: true,
@@ -22,7 +23,10 @@ export default defineConfig({
   splitting: true, // per-state district chunks
   sourcemap: false,
   treeshake: true,
-  // Peer deps stay external; protomaps-themes-base is a bundled dependency and,
-  // being dynamically imported, lands in its own chunk loaded only for vector maps.
-  external: ["react", "react/jsx-runtime", "leaflet", "maplibre-gl", "@maplibre/maplibre-gl-leaflet", "pmtiles"],
+  // Peer deps stay external (web + RN engines both come from the consumer app).
+  external: [
+    "react", "react/jsx-runtime", "react-native",
+    "leaflet", "maplibre-gl", "@maplibre/maplibre-gl-leaflet", "pmtiles",
+    "@maplibre/maplibre-react-native",
+  ],
 });

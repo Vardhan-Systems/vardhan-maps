@@ -1,7 +1,7 @@
 {
   "name": "vardhan-maps",
-  "version": "0.5.0",
-  "description": "Standard India map — state + district boundaries (aligned to the official Government of India depiction) as GeoJSON data, plus optional dependency-free SVG and Leaflet/React renderers. Built on OpenStreetMap.",
+  "version": "0.6.0",
+  "description": "Standard India map built on OpenStreetMap: state + district boundaries (aligned to the official Government of India depiction) as GeoJSON, dependency-free SVG + Leaflet/React renderers, and an optional self-hosted light-grey vector basemap (roads + labels, no POI) that works out of the box.",
   "license": "MIT",
   "author": "Vardhan Systems",
   "type": "module",
@@ -9,6 +9,7 @@
   "files": [
     "dist",
     "README.md",
+    "SKILL.md",
     "LICENSE",
     "ATTRIBUTION.md",
     "CHANGELOG.md"
@@ -92,9 +93,16 @@
     "openstreetmap",
     "osm",
     "leaflet",
+    "maplibre",
+    "maplibre-gl",
+    "pmtiles",
+    "vector-tiles",
+    "basemap",
     "react",
     "svg",
-    "choropleth"
+    "choropleth",
+    "telangana",
+    "andhra-pradesh"
   ],
   "repository": {
     "type": "git",

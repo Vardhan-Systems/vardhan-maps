@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.0
+
+The vector basemap now works with **zero config**:
+
+- **`vector` prop** — `<IndiaMap mode="leaflet" vector />` renders the default
+  self-hosted grey basemap with no setup. Shorthand for `vectorStyle={vectorBasemapStyle()}`.
+- **`vectorBasemapStyle()`** — `pmtilesUrl` and `glyphsUrl` are now **optional** and
+  default to Vardhan Systems' hosted **Telangana + Andhra Pradesh** tiles
+  (`VARDHAN_TILES_ORIGIN`, exported). Pass your own for other regions / self-hosting.
+- Fixed the default `fontStack` to `"Noto Sans Regular"` (matches the hosted glyphs).
+- Added **`SKILL.md`** — an AI-agent integration playbook (recipe + the maplibre-gl
+  v4-only / SSR / Turbopack-cache footguns), shipped in the package.
+
 ## 0.5.0
 
 Self-hosted **vector** basemap + custom-region controls (so you can own the whole

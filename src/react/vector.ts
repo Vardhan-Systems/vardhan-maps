@@ -65,16 +65,17 @@ const DEFAULT_PALETTE: GreyPalette = {
 
 export interface VectorBasemapOptions {
   /**
-   * URL of your hosted `.pmtiles` file (served with HTTP range support + CORS,
-   * e.g. from Cloudflare R2). Do NOT prefix with `pmtiles://` — that's added for you.
+   * URL of a hosted `.pmtiles` file (served with HTTP range support + CORS).
+   * Do NOT prefix with `pmtiles://` — that's added for you. Defaults to Vardhan
+   * Systems' hosted **Telangana + Andhra Pradesh** tiles (`{@link VARDHAN_TILES_ORIGIN}`),
+   * so it works with no config; pass your own for other regions / self-hosting.
    */
-  pmtilesUrl: string;
+  pmtilesUrl?: string;
   /**
    * URL template for the label glyph fonts, with `{fontstack}` and `{range}`
-   * placeholders, e.g. `https://cdn.example.com/fonts/{fontstack}/{range}.pbf`.
-   * Host the `NotoSans-Regular` stack (the only stack this style references).
+   * placeholders. Defaults to Vardhan Systems' hosted `Noto Sans Regular` glyphs.
    */
-  glyphsUrl: string;
+  glyphsUrl?: string;
   /** Attribution HTML. Defaults to the required OpenStreetMap credit. */
   attribution?: string;
   /** Override any palette colours (e.g. `{ water: "#c3d3d9" }`). */
@@ -85,12 +86,23 @@ export interface VectorBasemapOptions {
    * raw local `name` only.
    */
   lang?: "latin" | "en" | "local";
-  /** Font stack name to request from `glyphsUrl`. Default "NotoSans-Regular". */
+  /** Font stack name to request from `glyphsUrl`. Default "Noto Sans Regular". */
   fontStack?: string;
 }
 
 const OSM_ATTR =
   '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors';
+
+/**
+ * Vardhan Systems' hosted vector tiles origin — a self-hosted OpenStreetMap
+ * basemap for **Telangana + Andhra Pradesh** (Cloudflare R2). This is the default
+ * tile source, so `vectorBasemapStyle()` and `<IndiaMap vector />` work with zero
+ * config. Built from current OSM data; refreshed periodically.
+ */
+export const VARDHAN_TILES_ORIGIN = "https://maps.vardhansystems.in";
+const DEFAULT_PMTILES = `${VARDHAN_TILES_ORIGIN}/beyond-tgap.pmtiles`;
+const DEFAULT_GLYPHS = `${VARDHAN_TILES_ORIGIN}/fonts/{fontstack}/{range}.pbf`;
+const DEFAULT_FONT_STACK = "Noto Sans Regular";
 
 const SRC = "osm"; // our single vector source id
 
@@ -108,14 +120,14 @@ function labelField(lang: "latin" | "en" | "local"): unknown {
  *
  * Pure/synchronous — no runtime dependencies, so it (and the map) stay light.
  */
-export function vectorBasemapStyle(options: VectorBasemapOptions): VectorStyle {
+export function vectorBasemapStyle(options: VectorBasemapOptions = {}): VectorStyle {
   const {
-    pmtilesUrl,
-    glyphsUrl,
+    pmtilesUrl = DEFAULT_PMTILES,
+    glyphsUrl = DEFAULT_GLYPHS,
     attribution = OSM_ATTR,
     colors,
     lang = "latin",
-    fontStack = "NotoSans-Regular",
+    fontStack = DEFAULT_FONT_STACK,
   } = options;
   const c: GreyPalette = { ...DEFAULT_PALETTE, ...(colors ?? {}) };
   const fonts = [fontStack];

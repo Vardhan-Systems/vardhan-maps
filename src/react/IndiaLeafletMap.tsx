@@ -4,7 +4,7 @@ import type { GeoJsonObject } from "geojson";
 import { indiaOutline, loadAllDistricts, loadDistricts, states as allStates, type Resolution } from "../data";
 import { bboxOf } from "../core/geo";
 import type { DistrictProps, StateProps } from "../data/types";
-import type { VectorStyle } from "./vector";
+import { vectorBasemapStyle, type VectorStyle } from "./vector";
 
 /** A point to plot on the map (e.g. a customer, store, city, live position). */
 export interface MapMarker {
@@ -55,6 +55,14 @@ export interface IndiaLeafletMapProps {
   tiles?: boolean;
   tileUrl?: string;
   tileAttribution?: string;
+  /**
+   * Shortcut: render Vardhan Systems' default self-hosted OpenStreetMap **vector**
+   * basemap (light-grey, place + road labels, no POI icons) with zero config —
+   * equivalent to `vectorStyle={vectorBasemapStyle()}`. Ignored if `vectorStyle`
+   * is set. Requires the optional peers `maplibre-gl`, `@maplibre/maplibre-gl-leaflet`
+   * and `pmtiles`.
+   */
+  vector?: boolean;
   /**
    * Render a SELF-HOSTED OpenStreetMap **vector** basemap (MapLibre GL) under the
    * boundaries instead of raster tiles — you host the `.pmtiles` + glyph fonts
@@ -235,7 +243,9 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
 
       // Keep Leaflet's default attribution unless the consumer overrides the prefix.
       if (props.attributionPrefix != null) map.attributionControl.setPrefix(props.attributionPrefix);
-      if (props.vectorStyle) {
+      // `vector` is a shortcut for the default Vardhan basemap; `vectorStyle` wins.
+      const effectiveVectorStyle = props.vectorStyle ?? (props.vector ? vectorBasemapStyle() : undefined);
+      if (effectiveVectorStyle) {
         // Self-hosted OSM vector basemap: a MapLibre GL canvas under the Leaflet
         // overlays (via maplibre-gl-leaflet), reading `.pmtiles` over the pmtiles
         // protocol. All three libs are optional peers, imported only in this path.
@@ -253,7 +263,7 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
           await import("@maplibre/maplibre-gl-leaflet");
           if (cancelled) return;
           (L as unknown as { maplibreGL: (o: Record<string, unknown>) => LType.Layer })
-            .maplibreGL({ style: props.vectorStyle, attribution: props.tileAttribution ?? OSM_ATTR })
+            .maplibreGL({ style: effectiveVectorStyle, attribution: props.tileAttribution ?? OSM_ATTR })
             .addTo(map);
         } catch (err) {
           // Missing peers or a bad style shouldn't blank the whole map — the

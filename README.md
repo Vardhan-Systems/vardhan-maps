@@ -1,28 +1,38 @@
 # vardhan-maps
 
 A **standard India map** — state and district boundaries, aligned to the official
-Government of India depiction — as **GeoJSON data** plus optional, dependency-free
-**SVG** and **Leaflet/React** renderers. Built on OpenStreetMap.
+Government of India depiction — as **GeoJSON data**, dependency-free **SVG** and
+**Leaflet/React** renderers, and an optional **self-hosted light-grey vector
+basemap** (roads + labels, no POI icons) that works out of the box. Built on
+OpenStreetMap.
 
 > ⚠️ **Boundary disclaimer.** Boundaries are a best-effort approximation of the
 > official GoI depiction, derived from OpenStreetMap and editorially corrected.
 > **This is not an official or survey-grade map of India.** See
 > [ATTRIBUTION.md](./ATTRIBUTION.md).
 
-> 🚧 **Status: v0.2.** Ships **all 36 states/UTs + 787 districts**, generated from
-> OpenStreetMap, with GoI border patches (J&K includes PoK; Ladakh includes
-> Gilgit-Baltistan + Aksai Chin). **Two resolution tiers** (`low`/`high`) and
-> **lazy per-state district loading** keep it light. Not yet on npm.
+> ✅ **Status: v0.6, on npm.** Ships **all 36 states/UTs + 787 districts**,
+> generated from OpenStreetMap, with GoI border patches (J&K includes PoK; Ladakh
+> includes Gilgit-Baltistan + Aksai Chin). Two resolution tiers (`low`/`high`) +
+> lazy per-state district loading; choropleth + tooltips; live-tracking markers &
+> routes; and a self-hosted OSM **vector basemap**.
 
 ## Install
 
 ```bash
-pnpm add vardhan-maps
-# optional, only for the Leaflet renderer:
-pnpm add leaflet react
+npm add vardhan-maps
+# for the Leaflet renderer (peer deps):
+npm add leaflet react
+# for the vector basemap (peer deps):
+npm add maplibre-gl@^4 @maplibre/maplibre-gl-leaflet pmtiles
 ```
 
-The package ships three independent entry points, so you only pull what you use.
+> **maplibre-gl v3 or v4 only** — v5+ is not yet compatible with the pmtiles source
+> loading through the Leaflet adapter.
+
+The package ships four independent entry points (`.` / `/data` / `/svg` / `/react`),
+so you only pull what you use. All peers are **optional** — you only need them for
+the renderer/basemap you actually use.
 
 ## Use the data
 
@@ -145,10 +155,65 @@ everything outside India) are on unless you disable them. It also supports:
 - `fitTo` is `"india"` (default when locked), `"data"` (fit to markers/routes once),
   or `"none"` (you set `center`/`zoom`).
 
-The attribution uses Leaflet's defaults (`Leaflet | © OpenStreetMap contributors`);
-override the prefix with `attributionPrefix` if you want your own branding (keep the
-OSM credit, which the ODbL requires). Note: OSM basemap labels are in local scripts —
-an English label option is on the roadmap.
+### Self-hosted vector basemap (no third-party tiles)
+
+By default the Leaflet map draws raster OSM tiles from `tile.openstreetmap.org`.
+For a clean, **own-the-whole-stack** basemap, use the **vector** basemap instead:
+vector tiles (built from current OpenStreetMap data, OpenMapTiles schema) rendered
+with MapLibre GL **under** the Leaflet boundaries — light-grey, with city / town /
+village + road-name labels and **no point-of-interest icons**. No Esri/CARTO/Google.
+
+```tsx
+import { IndiaMap } from "vardhan-maps/react";
+import "leaflet/dist/leaflet.css";
+import "maplibre-gl/dist/maplibre-gl.css";
+
+// Zero-config: Vardhan Systems' hosted Telangana + Andhra Pradesh basemap.
+<IndiaMap mode="leaflet" level="both" vector style={{ height: 520 }} />
+```
+
+`vector` is a shortcut for `vectorStyle={vectorBasemapStyle()}`. To point at your
+own tiles (any region, self-hosted), build the style yourself — `pmtilesUrl` and
+`glyphsUrl` default to the Vardhan tiles but take any URL:
+
+```tsx
+import { IndiaMap, vectorBasemapStyle } from "vardhan-maps/react";
+
+const style = vectorBasemapStyle({
+  pmtilesUrl: "https://cdn.example.com/my-region.pmtiles",   // served with range + CORS
+  glyphsUrl: "https://cdn.example.com/fonts/{fontstack}/{range}.pbf",
+  colors: { water: "#c3d3d9" },   // optional palette overrides
+});
+
+<IndiaMap mode="leaflet" level="both" vectorStyle={style} />
+```
+
+**Restrict to a region.** Lock and mask the map to a few states instead of all of
+India — e.g. for a regional tracking map:
+
+```tsx
+<IndiaMap
+  mode="leaflet"
+  level="both"
+  vector
+  lockBounds={[[12.4, 76.5], [20.4, 85.5]]}     // hard pan/zoom bounds [[S,W],[N,E]]
+  mask maskStates={["Telangana", "Andhra Pradesh"]} maskOpacity={0.6}
+  attributionPrefix=""                           // drop Leaflet's default prefix
+/>
+```
+
+**Building your own tiles.** Any OpenMapTiles-schema `.pmtiles` works. Generate one
+from an OSM extract with [Planetiler](https://github.com/onthegomap/planetiler) or
+[tilemaker](https://github.com/systemed/tilemaker), host it (plus a `Noto Sans
+Regular` glyph fontstack) anywhere that serves **HTTP range requests + CORS**
+(Cloudflare R2, S3, …), and pass the URLs to `vectorBasemapStyle`. The default
+Vardhan tiles cover **Telangana + Andhra Pradesh** only.
+
+### Attribution
+
+The raster and vector basemaps both credit `© OpenStreetMap contributors` (required
+by the ODbL — keep it). Leaflet also adds its own `🇺🇦 Leaflet` prefix; pass
+`attributionPrefix=""` to remove it, or a string for your own branding.
 
 ### Live demo
 
@@ -202,15 +267,10 @@ repo secret).
 
 ## Publishing (maintainers)
 
-The package builds on `prepublishOnly`, ships only `dist` + docs, and is public
-(`publishConfig.access = "public"`). First, confirm the name is free on npm:
-
-```bash
-npm view vardhan-maps version   # "npm error 404" means the name is available
-```
-
-If it's taken, publish under a scope instead (rename to `@vardhan-systems/maps`
-in `package.json`; scoped names stay free).
+The package is **published** at [`vardhan-maps`](https://www.npmjs.com/package/vardhan-maps),
+builds on `prepublishOnly`, ships only `dist` + docs, and is public
+(`publishConfig.access = "public"`). Bump the version, then publish (2FA/OTP-gated —
+you must be logged in as the owner: `npm whoami`).
 
 ### With npm
 

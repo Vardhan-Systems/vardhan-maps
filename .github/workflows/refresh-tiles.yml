@@ -1,0 +1,70 @@
+name: Refresh vector basemap tiles
+
+# Rebuilds the default self-hosted basemap tiles (Telangana + Andhra Pradesh) from
+# CURRENT OpenStreetMap data and re-uploads them to Cloudflare R2, so the hosted
+# basemap stays fresh without a package release. Monthly, plus a manual trigger.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   R2_ACCESS_KEY_ID       — R2 API token access key id
+#   R2_SECRET_ACCESS_KEY   — R2 API token secret
+#   R2_ACCOUNT_ID          — Cloudflare account id (for the R2 S3 endpoint)
+#   CLOUDFLARE_API_TOKEN   — token with Cache Purge on the vardhansystems.in zone
+
+on:
+  schedule:
+    - cron: "0 3 1 * *" # 03:00 UTC on the 1st of every month
+  workflow_dispatch: {}
+
+concurrency:
+  group: refresh-tiles
+  cancel-in-progress: false
+
+env:
+  R2_BUCKET: beyond-basemap
+  PMTILES: beyond-tgap.pmtiles
+  TILES_URL: https://maps.vardhansystems.in/beyond-tgap.pmtiles
+  CF_ZONE_ID: 5cfc4ccd603fe9cceb1357aa04af2598 # vardhansystems.in (not secret)
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use the large ephemeral disk (/mnt) for the build
+        run: |
+          sudo mkdir -p /mnt/tiles
+          sudo chown "$USER" /mnt/tiles
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install osmium + rclone
+        run: sudo apt-get update && sudo apt-get install -y osmium-tool rclone
+
+      - name: Build tiles
+        run: bash scripts/build-tiles.sh /mnt/tiles
+
+      - name: Upload to R2
+        env:
+          RCLONE_CONFIG_R2_TYPE: s3
+          RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+        run: |
+          rclone copyto "/mnt/tiles/${PMTILES}" "R2:${R2_BUCKET}/${PMTILES}" \
+            --s3-no-check-bucket --stats-one-line
+
+      - name: Purge Cloudflare cache for the tiles
+        # The .pmtiles is read via HTTP range requests; a stale CDN cache of the OLD
+        # file would corrupt reads, so purge that URL after replacing the object.
+        run: |
+          curl -fsS -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data "{\"files\":[\"${TILES_URL}\"]}"

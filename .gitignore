@@ -5,3 +5,4 @@ dist/
 # Raw Overpass/OSM dumps produced by the data pipeline (large, regenerated):
 scripts/.cache/
 data/raw/
+.env

@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.5.0
+
+Self-hosted **vector** basemap + custom-region controls (so you can own the whole
+map stack instead of pulling rendered tiles from a third party):
+
+- **`vectorBasemapStyle(...)`** — build a clean, light-grey MapLibre style for a
+  self-hosted OpenStreetMap vector basemap (OpenMapTiles schema, e.g. built with
+  Planetiler/tilemaker and served as a `.pmtiles` from your own storage). Place +
+  road labels, roads by class, water — and **no point-of-interest icons**. Fully
+  configurable palette (`colors`), `lang`, and `fontStack`.
+- **`vectorStyle`** prop on the Leaflet map — render that vector basemap (via
+  MapLibre GL under the Leaflet overlays) instead of raster tiles. Needs the
+  optional peers `maplibre-gl` (**v3/v4 — v5+ not yet supported**),
+  `@maplibre/maplibre-gl-leaflet`, and `pmtiles`.
+- **`lockBounds`** — hard-lock pan/zoom to a custom region `[[S,W],[N,E]]` (e.g. a
+  couple of states) instead of all-India.
+- **`maskStates`** — dim everything outside the union of the named states (not just
+  outside India); **`maskOpacity`** tunes how strongly.
+- **`attributionPrefix=""`** now removes Leaflet's default prefix entirely.
+
 ## 0.4.0
 
 Choropleth + custom tooltips on the Leaflet map (for data-driven maps like a

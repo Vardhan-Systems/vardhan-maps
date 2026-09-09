@@ -4,6 +4,7 @@ import type { GeoJsonObject } from "geojson";
 import { indiaOutline, loadAllDistricts, loadDistricts, states as allStates, type Resolution } from "../data";
 import { bboxOf } from "../core/geo";
 import type { DistrictProps, StateProps } from "../data/types";
+import type { VectorStyle } from "./vector";
 
 /** A point to plot on the map (e.g. a customer, store, city, live position). */
 export interface MapMarker {
@@ -54,6 +55,15 @@ export interface IndiaLeafletMapProps {
   tiles?: boolean;
   tileUrl?: string;
   tileAttribution?: string;
+  /**
+   * Render a SELF-HOSTED OpenStreetMap **vector** basemap (MapLibre GL) under the
+   * boundaries instead of raster tiles — you host the `.pmtiles` + glyph fonts
+   * and control what shows (place + road labels, no POI icons). Build one with
+   * `vectorBasemapStyle(...)`. When set, the raster `tiles`/`tileUrl` are ignored.
+   * Requires the optional peers `maplibre-gl`, `@maplibre/maplibre-gl-leaflet`
+   * and `pmtiles`.
+   */
+  vectorStyle?: VectorStyle | string;
   stateStyle?: LType.PathOptions;
   districtStyle?: LType.PathOptions;
   /** Choropleth: per-district style overrides (e.g. fill by a value). Merged over districtStyle. */
@@ -89,11 +99,24 @@ export interface IndiaLeafletMapProps {
   boundaryTooltips?: boolean;
   /** Lock panning/zooming to India (hard bounds + min zoom). Default true. */
   lockToIndia?: boolean;
+  /**
+   * Lock panning/zoom to a CUSTOM region `[[south,west],[north,east]]` instead of
+   * all-India (e.g. a state or a couple of states). When set, the map hard-bounds
+   * to this rectangle and can't zoom out past it — regardless of `lockToIndia`.
+   */
+  lockBounds?: [[number, number], [number, number]];
   /** Grey-out everything outside India's borders. Default true. */
   mask?: boolean;
-  /** Colour of the outside-India mask. Default light grey. */
+  /**
+   * When masking, dim everything outside the UNION of these states (by name)
+   * instead of outside all of India — so only these states read clearly.
+   */
+  maskStates?: string[];
+  /** Colour of the mask. Default light grey. */
   maskColor?: string;
-  /** Override the attribution-control prefix (defaults to Leaflet's own). */
+  /** Opacity of the mask (0-1). Default 0.92. Lower = neighbours faintly visible. */
+  maskOpacity?: number;
+  /** Override the attribution-control prefix (defaults to Leaflet's own). Pass "" to remove it. */
   attributionPrefix?: string;
   onStateClick?: (name: string, props: StateProps) => void;
   onDistrictClick?: (name: string, props: DistrictProps) => void;
@@ -145,6 +168,11 @@ function ensureChipStyles() {
   document.head.appendChild(el);
 }
 
+// The pmtiles protocol is registered once per page. We track it with a
+// module-scoped flag rather than a property on the maplibre-gl module object,
+// which is non-extensible (frozen ESM namespace) under bundlers.
+let vmPmtilesRegistered = false;
+
 /**
  * India on a Leaflet slippy map — OSM raster tiles (cities, roads, terrain) by
  * default with the state/district boundaries overlaid, plus optional name labels
@@ -190,30 +218,68 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
       // Reuse the surviving instance; never create a second map on the container.
       if (cancelled || !el || mapRef.current || (el as unknown as { _leaflet_id?: number })._leaflet_id != null) return;
 
-      const bounds = L.latLngBounds(IN_BOUNDS).pad(0.03);
+      // Lock to a custom region if given, else all-India. `lockBounds` forces a
+      // lock even when lockToIndia is false.
+      const bounds = props.lockBounds
+        ? L.latLngBounds(props.lockBounds)
+        : L.latLngBounds(IN_BOUNDS).pad(0.03);
+      const doLock = lock || !!props.lockBounds;
       const map = L.map(el, {
         scrollWheelZoom: true,
-        maxBounds: lock ? bounds : undefined,
-        maxBoundsViscosity: lock ? 1 : 0,
+        maxBounds: doLock ? bounds : undefined,
+        maxBoundsViscosity: doLock ? 1 : 0,
       });
       if (props.center) map.setView(props.center, props.zoom ?? 5);
       else map.fitBounds(bounds);
-      if (lock) map.setMinZoom(map.getBoundsZoom(bounds));
+      if (doLock) map.setMinZoom(map.getBoundsZoom(bounds));
 
       // Keep Leaflet's default attribution unless the consumer overrides the prefix.
       if (props.attributionPrefix != null) map.attributionControl.setPrefix(props.attributionPrefix);
-      if (tiles !== false) {
+      if (props.vectorStyle) {
+        // Self-hosted OSM vector basemap: a MapLibre GL canvas under the Leaflet
+        // overlays (via maplibre-gl-leaflet), reading `.pmtiles` over the pmtiles
+        // protocol. All three libs are optional peers, imported only in this path.
+        try {
+          const glMod = await import("maplibre-gl");
+          const maplibregl = ((glMod as { default?: unknown }).default ?? glMod) as {
+            addProtocol: (n: string, h: unknown) => void;
+          };
+          (globalThis as { maplibregl?: unknown }).maplibregl = maplibregl; // the leaflet plugin reads the global
+          const pm = (await import("pmtiles")) as { Protocol: new () => { tile: unknown } };
+          if (!vmPmtilesRegistered) {
+            maplibregl.addProtocol("pmtiles", new pm.Protocol().tile);
+            vmPmtilesRegistered = true;
+          }
+          await import("@maplibre/maplibre-gl-leaflet");
+          if (cancelled) return;
+          (L as unknown as { maplibreGL: (o: Record<string, unknown>) => LType.Layer })
+            .maplibreGL({ style: props.vectorStyle, attribution: props.tileAttribution ?? OSM_ATTR })
+            .addTo(map);
+        } catch (err) {
+          // Missing peers or a bad style shouldn't blank the whole map — the
+          // boundaries/markers still render on a plain background.
+          if (typeof console !== "undefined") console.error("[vardhan-maps] vector basemap failed:", err);
+        }
+      } else if (tiles !== false) {
         L.tileLayer(tileUrl ?? OSM_URL, { attribution: props.tileAttribution ?? OSM_ATTR, maxZoom: 19 }).addTo(map);
       }
 
-      // Grey-out everything outside India: a world rectangle with India punched
-      // out as holes (Leaflet's default evenodd fill-rule makes inner rings holes).
+      // Grey-out everything outside the region: a world rectangle with the region
+      // punched out as holes (Leaflet's default evenodd fill-rule makes inner rings
+      // holes). Region = the named states' union if `maskStates` is given, else India.
       if (props.mask ?? true) {
         const world: number[][] = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
-        const holes = asMP(indiaOutline.geometry).map((poly) => poly[0]);
+        let holes: number[][][];
+        if (props.maskStates?.length) {
+          const want = new Set(props.maskStates);
+          const feats = allStates.features.filter((f) => want.has((f.properties as StateProps).name));
+          holes = feats.flatMap((f) => asMP(f.geometry as typeof indiaOutline.geometry).map((poly) => poly[0]));
+        } else {
+          holes = asMP(indiaOutline.geometry).map((poly) => poly[0]);
+        }
         L.geoJSON({ type: "Polygon", coordinates: [world, ...holes] } as unknown as GeoJsonObject, {
           interactive: false,
-          style: { stroke: false, weight: 0, fillColor: props.maskColor ?? "#e5e7eb", fillOpacity: 0.92 },
+          style: { stroke: false, weight: 0, fillColor: props.maskColor ?? "#e5e7eb", fillOpacity: props.maskOpacity ?? 0.92 },
         }).addTo(map);
       }
 

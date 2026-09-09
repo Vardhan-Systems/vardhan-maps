@@ -22,5 +22,7 @@ export default defineConfig({
   splitting: true, // per-state district chunks
   sourcemap: false,
   treeshake: true,
-  external: ["react", "react/jsx-runtime", "leaflet"],
+  // Peer deps stay external; protomaps-themes-base is a bundled dependency and,
+  // being dynamically imported, lands in its own chunk loaded only for vector maps.
+  external: ["react", "react/jsx-runtime", "leaflet", "maplibre-gl", "@maplibre/maplibre-gl-leaflet", "pmtiles"],
 });

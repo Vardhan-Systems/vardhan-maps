@@ -8,7 +8,6 @@ name: Refresh vector basemap tiles
 #   R2_ACCESS_KEY_ID       — R2 API token access key id
 #   R2_SECRET_ACCESS_KEY   — R2 API token secret
 #   R2_ACCOUNT_ID          — Cloudflare account id (for the R2 S3 endpoint)
-#   CLOUDFLARE_API_TOKEN   — token with Cache Purge on the vardhansystems.in zone
 
 on:
   schedule:
@@ -22,8 +21,6 @@ concurrency:
 env:
   R2_BUCKET: beyond-basemap
   PMTILES: beyond-tgap.pmtiles
-  TILES_URL: https://maps.vardhansystems.in/beyond-tgap.pmtiles
-  CF_ZONE_ID: 5cfc4ccd603fe9cceb1357aa04af2598 # vardhansystems.in (not secret)
 
 jobs:
   build-and-upload:
@@ -55,16 +52,13 @@ jobs:
           RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+        # Set Cache-Control: no-store so Cloudflare's CDN never caches the .pmtiles.
+        # It's read via HTTP range requests — a cached OLD file (or mixed old/new
+        # byte ranges after a refresh) would corrupt reads. Serving it uncached
+        # straight from R2 keeps every read consistent and makes refreshes instant,
+        # with no cache-purge step (and no cache-purge API token) needed. The tiny
+        # per-viewport range reads are cheap against R2. (Glyphs are static and can
+        # stay cacheable — they aren't touched here.)
         run: |
           rclone copyto "/mnt/tiles/${PMTILES}" "R2:${R2_BUCKET}/${PMTILES}" \
-            --s3-no-check-bucket --stats-one-line
-
-      - name: Purge Cloudflare cache for the tiles
-        # The .pmtiles is read via HTTP range requests; a stale CDN cache of the OLD
-        # file would corrupt reads, so purge that URL after replacing the object.
-        run: |
-          curl -fsS -X POST \
-            "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
-            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            --data "{\"files\":[\"${TILES_URL}\"]}"
+            --s3-no-check-bucket --header-upload "Cache-Control: no-store" --stats-one-line

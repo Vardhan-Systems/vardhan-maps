@@ -95,6 +95,14 @@ export interface IndiaLeafletMapProps {
    *  - "none": never auto-fit — you control the view via `center`/`zoom`.
    */
   fitTo?: "india" | "data" | "none";
+  /**
+   * With `fitTo="data"`: re-frame the data whenever this key changes (e.g. the
+   * selected item). The FIRST fit is instant; each later change **smoothly flies**
+   * to the new bounds. When routes are present, framing prefers the routes' extent
+   * (a selected trail from start → current) over the markers. Live data updates
+   * that DON'T change `fitKey` never move the map — so you can pan/zoom freely.
+   */
+  fitKey?: string | number;
   /** Initial view centre [lat, lng] (used when you don't want auto-fit). */
   center?: [number, number];
   /** Initial zoom (with `center`). */
@@ -197,6 +205,7 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
   const lRef = useRef<typeof LType | null>(null);
   const destroyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fittedData = useRef(false); // fit-to-data happens once (live updates don't re-zoom)
+  const lastFitKey = useRef<string | number | undefined>(undefined); // re-fit when `fitKey` changes
   const [ready, setReady] = useState(0);
 
   const level = props.level ?? "state";
@@ -206,7 +215,7 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
   const {
     stateName, stateNames, tiles, tileUrl, labels, markers, routes, dataKey,
     districtFill, stateFill, districtTooltip, stateTooltip, boundaryTooltips,
-    onStateClick, onDistrictClick, onMarkerClick,
+    onStateClick, onDistrictClick, onMarkerClick, fitKey,
   } = props;
   const showNameTip = boundaryTooltips !== false;
   const stateNamesKey = (stateNames ?? []).join("|");
@@ -371,7 +380,9 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
 
       // Routes (GPS trails / delivery runs) as polylines, with optional per-point
       // dots (e.g. each GPS ping) that show their `label` (timestamp) on hover.
+      // `routeLayers` is tracked separately so framing can prefer a selected trail.
       const data: LType.Layer[] = [];
+      const routeLayers: LType.Layer[] = [];
       for (const r of routes ?? []) {
         if (r.points.length >= 2) {
           const line = L.polyline(r.points.map((p) => [p.lat, p.lng]), {
@@ -380,6 +391,7 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
           if (r.label) line.bindTooltip(r.label, { sticky: true });
           line.addTo(group);
           data.push(line);
+          routeLayers.push(line);
         }
         if (r.showPoints) {
           for (const p of r.points) {
@@ -390,6 +402,7 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
             if (p.label) dot.bindTooltip(p.label, { direction: "top" });
             dot.addTo(group);
             data.push(dot);
+            routeLayers.push(dot);
           }
         }
       }
@@ -409,19 +422,29 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
       group.addTo(map);
       overlayRef.current = group;
 
-      // Framing: "data" fits to markers/routes ONCE (live updates don't re-zoom);
-      // "india"/"none" leave the view set by the create effect.
-      if (fitTo === "data" && !fittedData.current) {
-        const target = data.length ? L.featureGroup(data) : L.featureGroup(boundary);
+      // Framing: "data" fits to the data. It fits ONCE on first paint, and again
+      // whenever `fitKey` changes (e.g. a newly selected item) — the later fits
+      // fly smoothly. When routes are present, prefer the routes' extent (a
+      // selected trail from start → current) over the markers. Live updates that
+      // don't change `fitKey` never move the map. "india"/"none" leave the view.
+      const fitKeyChanged = fitKey !== undefined && fitKey !== lastFitKey.current;
+      if (fitTo === "data" && (!fittedData.current || fitKeyChanged)) {
+        const targetLayers = routeLayers.length ? routeLayers : data.length ? data : boundary;
         try {
-          map.fitBounds(target.getBounds(), { padding: [24, 24] });
+          const bounds = L.featureGroup(targetLayers).getBounds();
+          if (fittedData.current && fitKeyChanged) {
+            map.flyToBounds(bounds, { padding: [24, 24], duration: 0.85, easeLinearity: 0.25 });
+          } else {
+            map.fitBounds(bounds, { padding: [24, 24] }); // first fit: instant
+          }
           fittedData.current = true;
+          lastFitKey.current = fitKey;
         } catch { /* no bounds yet */ }
       }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, level, stateName, stateNamesKey, resolution, labels, markersKey, routesKey, fitTo, dataKey]);
+  }, [ready, level, stateName, stateNamesKey, resolution, labels, markersKey, routesKey, fitTo, fitKey, dataKey]);
 
   return <div ref={ref} className={props.className} style={props.style ?? { height: 480, width: "100%" }} />;
 }

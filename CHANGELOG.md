@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0
+
+- **`fitKey`** prop (Leaflet map, `fitTo="data"`): re-frame the data whenever the
+  key changes (e.g. the selected item) — the first fit is instant, each later
+  change **smoothly flies** to the new bounds, and framing prefers the **routes'**
+  extent (a selected trail from start → current) over the markers. Live data
+  updates that don't change `fitKey` never move the map. Lets a tracking map
+  smoothly fit a newly-selected executive's whole route without remounting.
+
 ## 0.6.0
 
 The vector basemap now works with **zero config**:

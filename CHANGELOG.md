@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.9.0
+
+- **Icon markers + click popups** (Leaflet map, `MapMarker`): a marker can now be
+  a real **icon** instead of a plain circle, and can carry a rich **click popup**.
+  - `icon?: string` — an HTML/SVG string (e.g. a flag or pin glyph) rendered as a
+    Leaflet `divIcon`; when set, `color`/`radius` are ignored. Size it with
+    `iconSize?: [w, h]` (default `[24, 24]`) and place its tip with
+    `iconAnchor?: [x, y]` (default = the icon's centre). Leaflet's default white
+    div-icon box is stripped, so the glyph shows raw.
+  - `popup?: string` — rich HTML shown in a click popup (e.g. a customer/visit
+    card), distinct from `label` (the hover tooltip). Opens on tap.
+  - Circle markers, `label`, `permanent` chips and `onMarkerClick` are unchanged;
+    the additions are purely opt-in, so existing maps render identically.
+  - Lets a tracking map plot customers as faint clickable dots and flag each visit
+    with an icon whose popup shows the customer, time, planned/unplanned and outcomes.
+  - React Native renderer (`IndiaMapNative`) is unchanged in this release — the
+    icon/popup additions are Leaflet-only for now.
+
 ## 0.8.0
 
 - **`vardhan-maps/react-native`** — a new React Native renderer, `<IndiaMapNative />`,

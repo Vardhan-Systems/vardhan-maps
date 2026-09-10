@@ -18,6 +18,22 @@ export interface MapMarker {
   color?: string;
   /** Circle radius in px (default 5). */
   radius?: number;
+  /**
+   * Render this marker as an icon instead of a plain circle. Pass an HTML/SVG
+   * string (e.g. a flag or pin glyph) — it becomes a Leaflet `divIcon`. When set,
+   * `color`/`radius` are ignored. Size it with `iconSize`; place its tip with
+   * `iconAnchor` (defaults to the icon's centre).
+   */
+  icon?: string;
+  /** Icon box size in px, `[width, height]` (default `[24, 24]`). */
+  iconSize?: [number, number];
+  /** Pixel offset of the icon's anchor point (default = centre of `iconSize`). */
+  iconAnchor?: [number, number];
+  /**
+   * Rich HTML shown in a click popup (e.g. a customer/visit card). Opens on tap —
+   * distinct from `label`, which is the hover tooltip.
+   */
+  popup?: string;
 }
 
 /** One point of a route; `label` shows on hover when the route draws its points. */
@@ -180,6 +196,13 @@ function ensureChipStyles() {
     .leaflet-tooltip.vm-card.leaflet-tooltip-bottom::before{border-bottom-color:#fff}
     .leaflet-tooltip.vm-card.leaflet-tooltip-left::before{border-left-color:#fff}
     .leaflet-tooltip.vm-card.leaflet-tooltip-right::before{border-right-color:#fff}
+    /* Icon markers: drop Leaflet's default white div-icon box so the glyph shows raw. */
+    .leaflet-div-icon.vm-icon{background:transparent;border:none;}
+    /* Rich click popup for markers (customer/visit card). */
+    .leaflet-popup.vm-popup .leaflet-popup-content-wrapper{
+      border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.16);
+    }
+    .leaflet-popup.vm-popup .leaflet-popup-content{margin:10px 12px;font:inherit;color:#0f172a;}
   `;
   document.head.appendChild(el);
 }
@@ -406,13 +429,30 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
           }
         }
       }
-      // Your own points. `permanent` shows the label as an always-on chip.
+      // Your own points. An `icon` renders a divIcon glyph (e.g. a flag); otherwise
+      // a plain circle. `permanent` shows the label as an always-on chip; `popup`
+      // opens a rich card on click.
       for (const m of markers ?? []) {
-        const cm = L.circleMarker([m.lat, m.lng], {
-          radius: m.radius ?? 5, color: "#ffffff", weight: 1.5, fillColor: m.color ?? "#2563eb", fillOpacity: 1,
-        });
+        let cm: L.CircleMarker | L.Marker;
+        if (m.icon) {
+          const size = m.iconSize ?? [24, 24];
+          const anchor = m.iconAnchor ?? [size[0] / 2, size[1] / 2];
+          cm = L.marker([m.lat, m.lng], {
+            icon: L.divIcon({
+              html: m.icon,
+              className: "vm-icon",
+              iconSize: size,
+              iconAnchor: anchor,
+            }),
+          });
+        } else {
+          cm = L.circleMarker([m.lat, m.lng], {
+            radius: m.radius ?? 5, color: "#ffffff", weight: 1.5, fillColor: m.color ?? "#2563eb", fillOpacity: 1,
+          });
+        }
         if (m.label && m.permanent) cm.bindTooltip(m.label, { permanent: true, direction: "top", className: "vm-chip", opacity: 1 });
         else if (m.label) cm.bindTooltip(m.label, { direction: "top" });
+        if (m.popup) cm.bindPopup(m.popup, { className: "vm-popup" });
         if (onMarkerClick) cm.on("click", () => onMarkerClick(m));
         cm.addTo(group);
         data.push(cm);

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.14.0
+
+- **Fix: crash fitting to a zero-size extent** (`IndiaLeafletMap` + `IndiaMapNative`,
+  `fitTo="data"`). When every target point is identical — a stationary rep whose
+  GPS pings are all at one spot, or a single marker — the data extent has zero
+  size. `fitBounds`/`flyToBounds` then computed a NaN zoom → NaN centre, and on the
+  Leaflet map the `maxBounds` guard threw **`Invalid LatLng object: (NaN, NaN)`**
+  asynchronously (so the fit's try/catch didn't catch it) and the map never moved.
+  Now a zero-size extent centres on the point at a street zoom (15) instead, and
+  non-degenerate fits cap at `maxZoom` 16 so a very tight cluster can't over-zoom
+  into a NaN either. Purely a robustness fix — normal multi-point fits are unchanged.
+
 ## 0.13.0
 
 - **`onRenderComplete`** (`IndiaLeafletMap` / `IndiaMap mode="leaflet"`, web): a callback

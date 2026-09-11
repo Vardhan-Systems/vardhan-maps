@@ -124,17 +124,19 @@ export function IndiaMapNative(props: IndiaMapNativeProps) {
   const camBounds = fitB ?? (center ? null : lockB);
   const lock = { ...(lockB ? { maxBounds: lockB } : {}), ...(minZoom !== undefined ? { minZoom } : {}) };
   const pad = { top: 24, right: 24, bottom: 24, left: 24 };
+  const fitDur = fitKey === undefined ? 0 : (fitDuration ?? 900);
+  // A zero-size extent (a stationary rep / a single marker — every point
+  // identical) can't be fit to a bounds: it would zoom to the max (and on the web
+  // twin throws a NaN). Centre on the point at a street zoom instead.
+  const degenerateFit =
+    !!camBounds && camBounds[0] === camBounds[2] && camBounds[1] === camBounds[3];
   // A re-fit (fitKey changed) animates with a curved "fly" by default — the RN
   // twin of the web's Leaflet flyToBounds — over `fitDuration` (900ms default).
   // The very first fit (fitKey undefined) is instant so the map doesn't fly in.
   const cameraProps: CameraProps = camBounds
-    ? {
-        bounds: camBounds,
-        padding: pad,
-        duration: fitKey === undefined ? 0 : (fitDuration ?? 900),
-        easing: fitEasing ?? "fly",
-        ...lock,
-      }
+    ? degenerateFit
+      ? { center: [camBounds[0], camBounds[1]], zoom: 15, duration: fitDur, easing: fitEasing ?? "fly", ...lock }
+      : { bounds: camBounds, padding: pad, duration: fitDur, easing: fitEasing ?? "fly", ...lock }
     : center
       ? { center: [center[1], center[0]], zoom: zoom ?? 6, ...lock }
       : lock;

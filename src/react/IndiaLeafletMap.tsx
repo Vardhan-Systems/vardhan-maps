@@ -489,13 +489,26 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
         const targetLayers = routeLayers.length ? routeLayers : data.length ? data : boundary;
         try {
           const bounds = L.featureGroup(targetLayers).getBounds();
-          if (fittedData.current && fitKeyChanged) {
-            map.flyToBounds(bounds, { padding: [24, 24], duration: 0.85, easeLinearity: 0.25 });
-          } else {
-            map.fitBounds(bounds, { padding: [24, 24] }); // first fit: instant
+          if (bounds.isValid()) {
+            const animate = fittedData.current && fitKeyChanged;
+            if (bounds.getSouthWest().equals(bounds.getNorthEast())) {
+              // Every target point is identical (a stationary rep, a single
+              // marker) → a ZERO-SIZE extent. fitBounds/flyToBounds then computes
+              // a NaN zoom → NaN centre → Leaflet's maxBounds check throws async
+              // ("Invalid LatLng (NaN, NaN)"), and the map never moves. Centre on
+              // the point at a street zoom instead (Leaflet clamps to maxZoom).
+              const center = bounds.getCenter();
+              if (animate) map.flyTo(center, 15, { duration: 0.85, easeLinearity: 0.25 });
+              else map.setView(center, 15);
+            } else {
+              // maxZoom caps a very tight cluster so it can't over-zoom into a NaN.
+              const opts = { padding: [24, 24] as [number, number], maxZoom: 16 };
+              if (animate) map.flyToBounds(bounds, { ...opts, duration: 0.85, easeLinearity: 0.25 });
+              else map.fitBounds(bounds, opts);
+            }
+            fittedData.current = true;
+            lastFitKey.current = fitKey;
           }
-          fittedData.current = true;
-          lastFitKey.current = fitKey;
         } catch { /* no bounds yet */ }
       }
     })();

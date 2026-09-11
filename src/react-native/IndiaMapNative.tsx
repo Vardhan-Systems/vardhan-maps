@@ -73,9 +73,14 @@ export function IndiaMapNative(props: IndiaMapNativeProps) {
     stateStyle, districtStyle, districtFill, stateFill, dataKey,
     markers, routes, fitTo, fitKey, fitDuration, fitEasing, center, zoom, labels,
     logo, attribution, compass,
-    mask = true, maskStates, maskColor, maskOpacity, lockBounds, minZoom,
+    mask = true, maskStates, maskColor, maskOpacity, clipToStates, clipColor,
+    lockBounds, minZoom,
     onStateClick, onDistrictClick, onMarkerClick, onRenderComplete, style,
   } = props;
+
+  // Clip-to-states: draw ONLY these states + hard-clip the basemap outside their
+  // union (an opaque mask). Falls back to `stateNames` when `maskStates` is unset.
+  const clipStates = clipToStates ? (maskStates ?? stateNames ?? null) : null;
 
   const mapStyle = useMemo(() => {
     const s = vectorStyle ?? vectorBasemapStyle();
@@ -86,11 +91,16 @@ export function IndiaMapNative(props: IndiaMapNativeProps) {
   const stateBase = base(stateStyle, STATE_D);
   const distBase = base(districtStyle, DIST_D);
 
-  const statesFC = useMemo(
-    () => (level === "district" ? null : stampBoundaries(getStates() as GeoJSON.Feature[], stateBase, stateFill)),
+  const statesFC = useMemo(() => {
+    if (level === "district") return null;
+    // When clipping, draw only the named states' outlines, not all of India.
+    const src = getStates() as GeoJSON.Feature[];
+    const feats = clipStates
+      ? src.filter((f) => clipStates.includes((f.properties as { name?: string })?.name ?? ""))
+      : src;
+    return stampBoundaries(feats, stateBase, stateFill);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [level, dataKey, stateStyle, stateFill],
-  );
+  }, [level, dataKey, stateStyle, stateFill, (clipStates ?? []).join("|")]);
   const stateHasFill = !!stateFill || stateBase.fill;
 
   const [districtFC, setDistrictFC] = useState<GeoJSON.FeatureCollection | null>(null);
@@ -109,7 +119,16 @@ export function IndiaMapNative(props: IndiaMapNativeProps) {
   }, [level, stateName, (stateNames ?? []).join("|"), resolution, dataKey]);
   const distHasFill = !!districtFill || distBase.fill;
 
-  const maskFeat = useMemo(() => (mask ? maskFeature(maskStates) : null), [mask, (maskStates ?? []).join("|")]);
+  // Clipping forces the mask on, punched out to the clipped states' union.
+  const maskFeat = useMemo(
+    () => (clipStates ? maskFeature(clipStates) : mask ? maskFeature(maskStates) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mask, (maskStates ?? []).join("|"), (clipStates ?? []).join("|")],
+  );
+  // Opaque solid fill outside the states when clipping (hard clip); else the dim.
+  const maskFill = clipStates
+    ? { color: clipColor ?? maskColor ?? "#e8e8e6", opacity: 1 }
+    : { color: maskColor ?? "#e5e7eb", opacity: maskOpacity ?? 0.6 };
   const lineFC = useMemo(() => routeLinesFC(routes ?? []), [routes]);
   const pointFC = useMemo(() => routePointsFC(routes ?? []), [routes]);
   const markFC = useMemo(() => markersFC(markers ?? []), [markers]);
@@ -165,7 +184,7 @@ export function IndiaMapNative(props: IndiaMapNativeProps) {
       {maskFeat ? (
         <GeoJSONSource id="vm-mask" data={maskFeat}>
           <Layer type="fill" source="vm-mask" id="vm-mask-fill"
-            paint={{ "fill-color": maskColor ?? "#e5e7eb", "fill-opacity": maskOpacity ?? 0.6 }} />
+            paint={{ "fill-color": maskFill.color, "fill-opacity": maskFill.opacity }} />
         </GeoJSONSource>
       ) : null}
 

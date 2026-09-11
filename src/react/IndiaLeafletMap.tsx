@@ -148,6 +148,18 @@ export interface IndiaLeafletMapProps {
   maskColor?: string;
   /** Opacity of the mask (0-1). Default 0.92. Lower = neighbours faintly visible. */
   maskOpacity?: number;
+  /**
+   * Clip the whole map to the named states (`maskStates`, else `stateNames`):
+   * draw ONLY those states' boundaries — not all of India — and fill everything
+   * outside their union with a solid `clipColor`, hard-clipping the basemap at the
+   * true state border (no neighbouring roads/labels/outlines bleed in). Turns the
+   * map into a "these states only" view. Overrides `mask`/`maskColor`/`maskOpacity`
+   * with an opaque clip. Default false.
+   */
+  clipToStates?: boolean;
+  /** Solid fill outside the clipped states (with `clipToStates`). Default `#e8e8e6`
+   *  — the basemap land colour, so the exterior reads as seamless empty land. */
+  clipColor?: string;
   /** Override the attribution-control prefix (defaults to Leaflet's own). Pass "" to remove it. */
   attributionPrefix?: string;
   onStateClick?: (name: string, props: StateProps) => void;
@@ -248,6 +260,9 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
     onStateClick, onDistrictClick, onMarkerClick, fitKey,
   } = props;
   const showNameTip = boundaryTooltips !== false;
+  // Clip-to-states: draw only these states + hard-clip the basemap outside their
+  // union (opaque mask). Falls back to `stateNames` when `maskStates` is unset.
+  const clipStates = props.clipToStates ? (props.maskStates ?? stateNames ?? null) : null;
   const stateNamesKey = (stateNames ?? []).join("|");
   const markersKey = JSON.stringify(markers ?? []);
   const routesKey = JSON.stringify(routes ?? []);
@@ -326,19 +341,23 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
       // Grey-out everything outside the region: a world rectangle with the region
       // punched out as holes (Leaflet's default evenodd fill-rule makes inner rings
       // holes). Region = the named states' union if `maskStates` is given, else India.
-      if (props.mask ?? true) {
+      // Clipping forces the mask on, punched out to the clipped states, opaque.
+      if (clipStates || (props.mask ?? true)) {
         const world: number[][] = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
+        const holeStates = clipStates ?? props.maskStates ?? null;
         let holes: number[][][];
-        if (props.maskStates?.length) {
-          const want = new Set(props.maskStates);
+        if (holeStates?.length) {
+          const want = new Set(holeStates);
           const feats = allStates.features.filter((f) => want.has((f.properties as StateProps).name));
           holes = feats.flatMap((f) => asMP(f.geometry as typeof indiaOutline.geometry).map((poly) => poly[0]));
         } else {
           holes = asMP(indiaOutline.geometry).map((poly) => poly[0]);
         }
+        const fillColor = clipStates ? (props.clipColor ?? props.maskColor ?? "#e8e8e6") : (props.maskColor ?? "#e5e7eb");
+        const fillOpacity = clipStates ? 1 : (props.maskOpacity ?? 0.92);
         L.geoJSON({ type: "Polygon", coordinates: [world, ...holes] } as unknown as GeoJsonObject, {
           interactive: false,
-          style: { stroke: false, weight: 0, fillColor: props.maskColor ?? "#e5e7eb", fillOpacity: props.maskOpacity ?? 0.92 },
+          style: { stroke: false, weight: 0, fillColor, fillOpacity },
         }).addTo(map);
       }
 
@@ -398,8 +417,12 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
         const sBase = props.stateStyle ?? {
           color: "#475569", weight: 1, fillColor: "#e2e8f0", fillOpacity: level === "both" ? 0 : 0.4,
         };
+        // When clipping, draw only the named states' outlines, not all of India.
+        const stateFeats = clipStates
+          ? allStates.features.filter((f) => clipStates.includes((f.properties as StateProps).name))
+          : allStates.features;
         boundary.push(
-          L.geoJSON({ type: "FeatureCollection", features: allStates.features } as unknown as GeoJsonObject, {
+          L.geoJSON({ type: "FeatureCollection", features: stateFeats } as unknown as GeoJsonObject, {
             style: (feature) => {
               const p = feature?.properties as StateProps;
               return { ...sBase, ...(stateFill?.(p.name, p) ?? {}) };

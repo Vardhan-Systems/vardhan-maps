@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.15.0
+
+- **`clipToStates` — a "these states only" map** (`IndiaLeafletMap` + `IndiaMapNative`).
+  Pass `clipToStates` (with `maskStates`, or falling back to `stateNames`) to turn
+  the map into a view of just those states instead of all of India:
+  - **Only the named states' boundaries are drawn** — the other 34 India state
+    outlines are no longer rendered.
+  - **The basemap is hard-clipped at the true state border** — everything outside
+    the states' union is filled with a solid `clipColor` (default `#e8e8e6`, the
+    basemap land colour, so the exterior reads as seamless empty land). No
+    neighbouring roads, labels or outlines bleed in past the border.
+  - Overrides `mask`/`maskColor`/`maskOpacity` with an opaque clip; pair with
+    `lockBounds` to also stop panning away. Additive — maps without the prop are
+    unchanged. Same prop and behaviour on both the web (Leaflet) and React-Native
+    (MapLibre) renderers.
+
 ## 0.14.0
 
 - **Fix: crash fitting to a zero-size extent** (`IndiaLeafletMap` + `IndiaMapNative`,

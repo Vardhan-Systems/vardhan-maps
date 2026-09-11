@@ -89,6 +89,18 @@ export interface IndiaMapNativeProps {
   maskColor?: string;
   /** Mask opacity (0–1). Default 0.6. */
   maskOpacity?: number;
+  /**
+   * Clip the whole map to the named states (`maskStates`, else `stateNames`):
+   * draw ONLY those states' boundaries — not all of India — and fill everything
+   * outside their union with a solid `clipColor`, hard-clipping the basemap at the
+   * true state border (so no neighbouring roads/labels/outlines bleed in). Turns
+   * the map into a "these states only" view. Overrides `mask`/`maskColor`/
+   * `maskOpacity` with an opaque clip. Default false.
+   */
+  clipToStates?: boolean;
+  /** Solid fill outside the clipped states (with `clipToStates`). Default `#e8e8e6`
+   *  — the basemap land colour, so the exterior reads as seamless empty land. */
+  clipColor?: string;
   /** Lock pan/zoom to a region `[[south,west],[north,east]]` (Leaflet order). */
   lockBounds?: [[number, number], [number, number]];
   /** Minimum zoom level. */

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.0
+
+- **Ornament toggles** (`IndiaMapNative`, React Native): pass-throughs for MapLibre's
+  map ornaments so a consumer can hide the built-in logo and drop in their own brand:
+  - `logo?: boolean` — show/hide the MapLibre wordmark (default MapLibre's own, true).
+  - `attribution?: boolean` — show/hide the attribution (ⓘ) button (default true).
+  - `compass?: boolean` — show/hide the compass.
+  - Only the **logo** is safe to hide for branding — **keep `attribution` on**: the
+    OpenStreetMap basemap data is ODbL-licensed and requires visible attribution.
+
 ## 0.10.0
 
 - **Smooth camera fly on re-fit** (`IndiaMapNative`, React Native): when `fitKey`

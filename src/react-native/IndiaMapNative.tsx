@@ -72,6 +72,7 @@ export function IndiaMapNative(props: IndiaMapNativeProps) {
     level = "state", stateName, stateNames, resolution, vector, vectorStyle,
     stateStyle, districtStyle, districtFill, stateFill, dataKey,
     markers, routes, fitTo, fitKey, fitDuration, fitEasing, center, zoom, labels,
+    logo, attribution, compass,
     mask = true, maskStates, maskColor, maskOpacity, lockBounds, minZoom,
     onStateClick, onDistrictClick, onMarkerClick, style,
   } = props;
@@ -149,7 +150,13 @@ export function IndiaMapNative(props: IndiaMapNativeProps) {
   };
 
   return (
-    <Map mapStyle={mapStyle} style={style ?? { flex: 1 }}>
+    <Map
+      mapStyle={mapStyle}
+      style={style ?? { flex: 1 }}
+      logo={logo}
+      attribution={attribution}
+      compass={compass}
+    >
       <Camera {...cameraProps} />
 
       {maskFeat ? (

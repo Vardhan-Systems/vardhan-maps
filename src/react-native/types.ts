@@ -72,6 +72,15 @@ export interface IndiaMapNativeProps {
   zoom?: number;
   /** Permanent name label on each boundary. */
   labels?: boolean;
+  /** Show the MapLibre wordmark logo. Default true (MapLibre's own). Set false to
+   *  hide it — e.g. to overlay your own brand logo. NOTE: this is only the logo;
+   *  keep `attribution` on, since the OSM basemap data requires attribution (ODbL). */
+  logo?: boolean;
+  /** Show the attribution (ⓘ) button. Default true. Keep it on: the OpenStreetMap
+   *  basemap data is licensed under ODbL, which requires visible attribution. */
+  attribution?: boolean;
+  /** Show the compass. Default = MapLibre's own behaviour. */
+  compass?: boolean;
   /** Grey-out everything outside the region. Default true. */
   mask?: boolean;
   /** Dim outside the union of these states instead of outside all India. */

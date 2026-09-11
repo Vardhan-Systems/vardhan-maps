@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.0
+
+- **`onRenderComplete`** (`IndiaLeafletMap` / `IndiaMap mode="leaflet"`, web): a callback
+  that fires once the basemap is fully rendered — the vector map's maplibre-gl `idle`
+  event (all tiles painted, no pending work), or the raster tile layer's `load`. The
+  web twin of the React-Native `onRenderComplete` (0.12.0), so a consumer can keep a
+  loader up and reveal the map only once it's completely loaded.
+
 ## 0.12.0
 
 - **`onRenderComplete`** (`IndiaMapNative`, React Native): a callback that fires when

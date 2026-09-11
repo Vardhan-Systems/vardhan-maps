@@ -153,6 +153,13 @@ export interface IndiaLeafletMapProps {
   onStateClick?: (name: string, props: StateProps) => void;
   onDistrictClick?: (name: string, props: DistrictProps) => void;
   onMarkerClick?: (marker: MapMarker) => void;
+  /**
+   * Fires once the basemap is fully rendered — every tile painted with no work
+   * pending (the vector map's maplibre-gl `idle` event, or the raster tile layer's
+   * `load`). The "map is completely loaded" signal — use it to reveal the map only
+   * once it's ready.
+   */
+  onRenderComplete?: () => void;
   className?: string;
   style?: CSSProperties;
 }
@@ -294,16 +301,26 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
           }
           await import("@maplibre/maplibre-gl-leaflet");
           if (cancelled) return;
-          (L as unknown as { maplibreGL: (o: Record<string, unknown>) => LType.Layer })
-            .maplibreGL({ style: effectiveVectorStyle, attribution: props.tileAttribution ?? OSM_ATTR })
-            .addTo(map);
+          const glLayer = (L as unknown as { maplibreGL: (o: Record<string, unknown>) => LType.Layer })
+            .maplibreGL({ style: effectiveVectorStyle, attribution: props.tileAttribution ?? OSM_ATTR });
+          glLayer.addTo(map);
+          // "Fully rendered" = the underlying maplibre-gl map goes idle (all tiles
+          // painted, no pending work). Fires once so the consumer can reveal the map.
+          if (props.onRenderComplete) {
+            const glMap = (glLayer as unknown as {
+              getMaplibreMap?: () => { once: (ev: string, cb: () => void) => void };
+            }).getMaplibreMap?.();
+            glMap?.once("idle", () => props.onRenderComplete?.());
+          }
         } catch (err) {
           // Missing peers or a bad style shouldn't blank the whole map — the
           // boundaries/markers still render on a plain background.
           if (typeof console !== "undefined") console.error("[vardhan-maps] vector basemap failed:", err);
         }
       } else if (tiles !== false) {
-        L.tileLayer(tileUrl ?? OSM_URL, { attribution: props.tileAttribution ?? OSM_ATTR, maxZoom: 19 }).addTo(map);
+        const tl = L.tileLayer(tileUrl ?? OSM_URL, { attribution: props.tileAttribution ?? OSM_ATTR, maxZoom: 19 });
+        if (props.onRenderComplete) tl.once("load", () => props.onRenderComplete?.());
+        tl.addTo(map);
       }
 
       // Grey-out everything outside the region: a world rectangle with the region

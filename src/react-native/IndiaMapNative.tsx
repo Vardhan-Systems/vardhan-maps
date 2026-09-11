@@ -71,7 +71,7 @@ export function IndiaMapNative(props: IndiaMapNativeProps) {
   const {
     level = "state", stateName, stateNames, resolution, vector, vectorStyle,
     stateStyle, districtStyle, districtFill, stateFill, dataKey,
-    markers, routes, fitTo, fitKey, center, zoom, labels,
+    markers, routes, fitTo, fitKey, fitDuration, fitEasing, center, zoom, labels,
     mask = true, maskStates, maskColor, maskOpacity, lockBounds, minZoom,
     onStateClick, onDistrictClick, onMarkerClick, style,
   } = props;
@@ -123,8 +123,17 @@ export function IndiaMapNative(props: IndiaMapNativeProps) {
   const camBounds = fitB ?? (center ? null : lockB);
   const lock = { ...(lockB ? { maxBounds: lockB } : {}), ...(minZoom !== undefined ? { minZoom } : {}) };
   const pad = { top: 24, right: 24, bottom: 24, left: 24 };
+  // A re-fit (fitKey changed) animates with a curved "fly" by default — the RN
+  // twin of the web's Leaflet flyToBounds — over `fitDuration` (900ms default).
+  // The very first fit (fitKey undefined) is instant so the map doesn't fly in.
   const cameraProps: CameraProps = camBounds
-    ? { bounds: camBounds, padding: pad, duration: fitKey === undefined ? 0 : 800, ...lock }
+    ? {
+        bounds: camBounds,
+        padding: pad,
+        duration: fitKey === undefined ? 0 : (fitDuration ?? 900),
+        easing: fitEasing ?? "fly",
+        ...lock,
+      }
     : center
       ? { center: [center[1], center[0]], zoom: zoom ?? 6, ...lock }
       : lock;

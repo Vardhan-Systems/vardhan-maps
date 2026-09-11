@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.0
+
+- **Smooth camera fly on re-fit** (`IndiaMapNative`, React Native): when `fitKey`
+  changes, the camera now animates with a curved **"fly"** easing by default (the
+  RN twin of the web Leaflet `flyToBounds`) — a zoom-out/pan/zoom-in arc instead of
+  a flat move. Two new opt-in knobs:
+  - `fitDuration?: number` — animation length for a re-fit (default **900ms**).
+  - `fitEasing?: "linear" | "ease" | "fly"` — easing/path (default **"fly"**).
+  - The very first fit (before any `fitKey`) stays instant, so the map doesn't fly
+    in on mount. Purely additive — existing maps get the nicer fly for free.
+
 ## 0.9.0
 
 - **Icon markers + click popups** (Leaflet map, `MapMarker`): a marker can now be

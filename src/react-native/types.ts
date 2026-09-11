@@ -61,6 +61,11 @@ export interface IndiaMapNativeProps {
   fitTo?: "region" | "data" | "none";
   /** With `fitTo="data"`: re-fit whenever this changes (first fit instant, later fly). */
   fitKey?: string | number;
+  /** Camera animation for a re-fit (when `fitKey` changes). Default 900ms. */
+  fitDuration?: number;
+  /** Camera easing for a re-fit: "fly" gives a curved zoom-out/in (web-like flyTo,
+   *  the default), "ease"/"linear" a flat move. */
+  fitEasing?: "linear" | "ease" | "fly";
   /** Initial centre [lat, lng] (Leaflet order) when not auto-fitting. */
   center?: [number, number];
   /** Initial zoom (with `center`). */

@@ -74,7 +74,7 @@ export function IndiaMapNative(props: IndiaMapNativeProps) {
     markers, routes, fitTo, fitKey, fitDuration, fitEasing, center, zoom, labels,
     logo, attribution, compass,
     mask = true, maskStates, maskColor, maskOpacity, lockBounds, minZoom,
-    onStateClick, onDistrictClick, onMarkerClick, style,
+    onStateClick, onDistrictClick, onMarkerClick, onRenderComplete, style,
   } = props;
 
   const mapStyle = useMemo(() => {
@@ -156,6 +156,7 @@ export function IndiaMapNative(props: IndiaMapNativeProps) {
       logo={logo}
       attribution={attribution}
       compass={compass}
+      onDidFinishRenderingMapFully={onRenderComplete ? () => onRenderComplete() : undefined}
     >
       <Camera {...cameraProps} />
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.0
+
+- **`onRenderComplete`** (`IndiaMapNative`, React Native): a callback that fires when
+  the map is fully rendered for the current view — every basemap tile, boundary and
+  marker painted (wraps MapLibre's `onDidFinishRenderingMapFully`). The truest
+  "map is completely loaded" signal, so a consumer can keep a loader up and reveal
+  the map only once it's ready. May fire again after a pan/zoom re-render — latch on
+  the first call for a one-time reveal.
+
 ## 0.11.0
 
 - **Ornament toggles** (`IndiaMapNative`, React Native): pass-throughs for MapLibre's

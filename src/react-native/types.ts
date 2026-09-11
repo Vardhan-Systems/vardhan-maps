@@ -96,6 +96,14 @@ export interface IndiaMapNativeProps {
   onStateClick?: (name: string, props: Record<string, unknown>) => void;
   onDistrictClick?: (name: string, props: Record<string, unknown>) => void;
   onMarkerClick?: (marker: MapMarker) => void;
+  /**
+   * Fires when the map is fully rendered for the current view — every basemap
+   * tile, boundary and marker painted (MapLibre's `onDidFinishRenderingMapFully`).
+   * The truest "map is completely loaded" signal — use it to reveal the map only
+   * once it's ready. NOTE: it can fire again after a pan/zoom re-render, so latch
+   * on the first call if you only want a one-time reveal.
+   */
+  onRenderComplete?: () => void;
   /** Container style (defaults to `flex: 1`). */
   style?: ViewStyle;
 }

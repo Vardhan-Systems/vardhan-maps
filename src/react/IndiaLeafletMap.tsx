@@ -3,7 +3,7 @@ import type * as LType from "leaflet";
 import type { GeoJsonObject } from "geojson";
 import { indiaOutline, loadAllDistricts, loadDistricts, states as allStates, type Resolution } from "../data";
 import { bboxOf } from "../core/geo";
-import type { DistrictProps, StateProps } from "../data/types";
+import type { DistrictFeature, DistrictProps, StateProps } from "../data/types";
 import { vectorBasemapStyle, type VectorStyle } from "./vector";
 
 /** A point to plot on the map (e.g. a customer, store, city, live position). */
@@ -160,6 +160,17 @@ export interface IndiaLeafletMapProps {
   /** Solid fill outside the clipped states (with `clipToStates`). Default `#e8e8e6`
    *  — the basemap land colour, so the exterior reads as seamless empty land. */
   clipColor?: string;
+  /**
+   * Focus on a specific SET of districts (state-qualified, so district names can't
+   * collide across states). Draws ONLY these districts AND their enclosing state
+   * boundary, and fits the view to their union. For a distributor working in a few
+   * districts (e.g. Nalgonda, Suryapet, Khammam, Bhadradri Kothagudem) instead of
+   * all of India. Pair with `clipToDistricts` to also hard-clip the basemap.
+   */
+  districts?: { state: string; name: string }[];
+  /** Hard-clip the basemap to the `districts` union (like `clipToStates`, but at
+   *  district level): fill everything outside with `clipColor`. Default false. */
+  clipToDistricts?: boolean;
   /** Override the attribution-control prefix (defaults to Leaflet's own). Pass "" to remove it. */
   attributionPrefix?: string;
   onStateClick?: (name: string, props: StateProps) => void;
@@ -190,6 +201,35 @@ const IN_BOUNDS: [[number, number], [number, number]] = [
 ];
 const asMP = (g: typeof indiaOutline.geometry): number[][][][] =>
   (g.type === "Polygon" ? [g.coordinates] : g.coordinates) as number[][][][];
+
+const norm = (s: string) => s.trim().toLowerCase();
+
+/** Load the involved states' districts and keep only the named (state-qualified)
+ *  ones — the basis for a "these districts only" focus/clip. */
+async function loadFocusDistricts(
+  districts: { state: string; name: string }[],
+  resolution: Resolution,
+): Promise<DistrictFeature[]> {
+  const want = new Map<string, Set<string>>();
+  for (const d of districts) {
+    const k = norm(d.state);
+    let set = want.get(k);
+    if (!set) want.set(k, (set = new Set()));
+    set.add(norm(d.name));
+  }
+  const involved = [...new Set(districts.map((d) => d.state))];
+  const feats = (await Promise.all(involved.map((s) => loadDistricts(s, { resolution })))).flat();
+  return feats.filter((f) => {
+    const p = f.properties as DistrictProps;
+    return want.get(norm(p.state))?.has(norm(p.name)) ?? false;
+  });
+}
+
+/** Leaflet [[S,W],[N,E]] bounds of a set of district features. */
+function featureBounds(feats: DistrictFeature[]): [[number, number], [number, number]] {
+  const b = bboxOf({ type: "FeatureCollection", features: feats } as never);
+  return [[b[1], b[0]], [b[3], b[2]]];
+}
 
 // Style the always-on marker chip (`permanent` markers) as a small pill. Injected
 // once globally (Leaflet builds tooltip DOM outside React). Consumers can restyle
@@ -263,6 +303,11 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
   // Clip-to-states: draw only these states + hard-clip the basemap outside their
   // union (opaque mask). Falls back to `stateNames` when `maskStates` is unset.
   const clipStates = props.clipToStates ? (props.maskStates ?? stateNames ?? null) : null;
+  // District focus: draw only these districts + their state boundary, fit (and
+  // optionally hard-clip) to their union. Names are state-qualified.
+  const focusDistricts = props.districts?.length ? props.districts : null;
+  const focusStates = focusDistricts ? [...new Set(focusDistricts.map((d) => d.state))] : null;
+  const districtFocusKey = (focusDistricts ?? []).map((d) => `${d.state}/${d.name}`).sort().join("|");
   const stateNamesKey = (stateNames ?? []).join("|");
   const markersKey = JSON.stringify(markers ?? []);
   const routesKey = JSON.stringify(routes ?? []);
@@ -280,12 +325,19 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
       // Reuse the surviving instance; never create a second map on the container.
       if (cancelled || !el || mapRef.current || (el as unknown as { _leaflet_id?: number })._leaflet_id != null) return;
 
-      // Lock to a custom region if given, else all-India. `lockBounds` forces a
-      // lock even when lockToIndia is false.
-      const bounds = props.lockBounds
-        ? L.latLngBounds(props.lockBounds)
-        : L.latLngBounds(IN_BOUNDS).pad(0.03);
-      const doLock = lock || !!props.lockBounds;
+      // Load the focus districts up front so both the fit and the clip can use them.
+      const focusFeats = focusDistricts ? await loadFocusDistricts(focusDistricts, resolution) : null;
+      if (cancelled) return;
+
+      // Lock to the focus districts if given, else a custom region, else all-India.
+      // `lockBounds`/focus force a lock even when lockToIndia is false.
+      const bounds =
+        focusFeats && focusFeats.length
+          ? L.latLngBounds(featureBounds(focusFeats)).pad(0.05)
+          : props.lockBounds
+            ? L.latLngBounds(props.lockBounds)
+            : L.latLngBounds(IN_BOUNDS).pad(0.03);
+      const doLock = lock || !!props.lockBounds || !!(focusFeats && focusFeats.length);
       const map = L.map(el, {
         scrollWheelZoom: true,
         maxBounds: doLock ? bounds : undefined,
@@ -342,19 +394,25 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
       // punched out as holes (Leaflet's default evenodd fill-rule makes inner rings
       // holes). Region = the named states' union if `maskStates` is given, else India.
       // Clipping forces the mask on, punched out to the clipped states, opaque.
-      if (clipStates || (props.mask ?? true)) {
+      const clipDistricts = props.clipToDistricts && focusFeats && focusFeats.length ? focusFeats : null;
+      if (clipDistricts || clipStates || (props.mask ?? true)) {
         const world: number[][] = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
-        const holeStates = clipStates ?? props.maskStates ?? null;
         let holes: number[][][];
-        if (holeStates?.length) {
-          const want = new Set(holeStates);
-          const feats = allStates.features.filter((f) => want.has((f.properties as StateProps).name));
-          holes = feats.flatMap((f) => asMP(f.geometry as typeof indiaOutline.geometry).map((poly) => poly[0]));
+        if (clipDistricts) {
+          holes = clipDistricts.flatMap((f) => asMP(f.geometry as typeof indiaOutline.geometry).map((poly) => poly[0]));
         } else {
-          holes = asMP(indiaOutline.geometry).map((poly) => poly[0]);
+          const holeStates = clipStates ?? props.maskStates ?? null;
+          if (holeStates?.length) {
+            const want = new Set(holeStates);
+            const feats = allStates.features.filter((f) => want.has((f.properties as StateProps).name));
+            holes = feats.flatMap((f) => asMP(f.geometry as typeof indiaOutline.geometry).map((poly) => poly[0]));
+          } else {
+            holes = asMP(indiaOutline.geometry).map((poly) => poly[0]);
+          }
         }
-        const fillColor = clipStates ? (props.clipColor ?? props.maskColor ?? "#e8e8e6") : (props.maskColor ?? "#e5e7eb");
-        const fillOpacity = clipStates ? 1 : (props.maskOpacity ?? 0.92);
+        const clipping = clipDistricts || clipStates;
+        const fillColor = clipping ? (props.clipColor ?? props.maskColor ?? "#e8e8e6") : (props.maskColor ?? "#e5e7eb");
+        const fillOpacity = clipping ? 1 : (props.maskOpacity ?? 0.92);
         L.geoJSON({ type: "Polygon", coordinates: [world, ...holes] } as unknown as GeoJsonObject, {
           interactive: false,
           style: { stroke: false, weight: 0, fillColor, fillOpacity },
@@ -383,10 +441,14 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
     let cancelled = false;
     void (async () => {
       const boundary: LType.Layer[] = [];
+      // With a district focus, draw both the districts and their state boundary.
+      const drawLevel = focusDistricts ? "both" : level;
 
-      if (level !== "state") {
+      if (drawLevel !== "state") {
         let feats;
-        if (stateNames?.length) {
+        if (focusDistricts) {
+          feats = await loadFocusDistricts(focusDistricts, resolution);
+        } else if (stateNames?.length) {
           feats = (await Promise.all(stateNames.map((s) => loadDistricts(s, { resolution })))).flat();
         } else if (stateName) {
           feats = await loadDistricts(stateName, { resolution });
@@ -395,7 +457,8 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
         }
         if (cancelled) return;
         const dBase = props.districtStyle ?? {
-          color: "#94a3b8", weight: 0.8, fillColor: "#f1f5f9", fillOpacity: level === "both" ? 0 : 0.5,
+          color: "#94a3b8", weight: 0.8, fillColor: "#f1f5f9",
+          fillOpacity: level === "both" && !focusDistricts ? 0 : 0.5,
         };
         boundary.push(
           L.geoJSON({ type: "FeatureCollection", features: feats } as unknown as GeoJsonObject, {
@@ -413,13 +476,15 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
           }),
         );
       }
-      if (level !== "district") {
+      if (drawLevel !== "district") {
         const sBase = props.stateStyle ?? {
-          color: "#475569", weight: 1, fillColor: "#e2e8f0", fillOpacity: level === "both" ? 0 : 0.4,
+          color: "#475569", weight: 1, fillColor: "#e2e8f0",
+          fillOpacity: level === "both" || focusStates ? 0 : 0.4,
         };
-        // When clipping, draw only the named states' outlines, not all of India.
-        const stateFeats = clipStates
-          ? allStates.features.filter((f) => clipStates.includes((f.properties as StateProps).name))
+        // When clipping/focusing, draw only the named states' outlines, not all India.
+        const wantStates = clipStates ?? focusStates ?? null;
+        const stateFeats = wantStates
+          ? allStates.features.filter((f) => wantStates.includes((f.properties as StateProps).name))
           : allStates.features;
         boundary.push(
           L.geoJSON({ type: "FeatureCollection", features: stateFeats } as unknown as GeoJsonObject, {
@@ -537,7 +602,7 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, level, stateName, stateNamesKey, resolution, labels, markersKey, routesKey, fitTo, fitKey, dataKey]);
+  }, [ready, level, stateName, stateNamesKey, districtFocusKey, resolution, labels, markersKey, routesKey, fitTo, fitKey, dataKey]);
 
   return <div ref={ref} className={props.className} style={props.style ?? { height: 480, width: "100%" }} />;
 }

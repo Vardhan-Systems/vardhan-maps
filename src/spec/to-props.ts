@@ -14,7 +14,10 @@ function dataMap(spec: VardhanMapSpec): Map<string, number> {
  */
 export function specToLeafletProps(spec: VardhanMapSpec): Partial<IndiaLeafletMapProps> {
   const focusStates = spec.map.states ?? (spec.map.state ? [spec.map.state] : undefined);
-  const level: "state" | "district" = spec.map.region === "india" ? "state" : "district";
+  const focusDistricts = spec.map.districts?.length ? spec.map.districts : undefined;
+  // A district focus always renders at district level (draws only those districts).
+  const level: "state" | "district" =
+    spec.map.region === "india" && !focusDistricts ? "state" : "district";
 
   const values = dataMap(spec);
   const scale = buildColorScale([...values.values()], spec.options?.colors);
@@ -34,8 +37,12 @@ export function specToLeafletProps(spec: VardhanMapSpec): Partial<IndiaLeafletMa
     vector: basemap === "vector",
     tiles: basemap === "raster",
     boundaryTooltips: spec.options?.tooltip !== false,
-    // Focused, single-region views clip to the chosen states for a clean map.
-    clipToStates: spec.map.region !== "india" && !!focusStates?.length,
+    // A district focus draws only those districts + their state boundary, clipped
+    // to their union (a distributor's operating area). Otherwise a focused,
+    // single-region view clips to the chosen states.
+    districts: focusDistricts,
+    clipToDistricts: !!focusDistricts,
+    clipToStates: !focusDistricts && spec.map.region !== "india" && !!focusStates?.length,
     // Framing: fit to markers/routes when present, else keep the India view.
     fitTo: (spec.markers?.length || spec.routes?.length) ? "data" : "india",
     // Bump so the choropleth overlay redraws when the data changes (no remount).

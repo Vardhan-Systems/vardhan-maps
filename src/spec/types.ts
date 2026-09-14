@@ -14,6 +14,10 @@ export interface VardhanMapRegion {
   state?: string;
   /** Focus several states (e.g. ["Telangana","Andhra Pradesh"]). */
   states?: string[];
+  /** Focus a specific SET of districts (state-qualified, so names can't collide
+   *  across states). Draws ONLY these districts + their state boundary and clips
+   *  to their union — e.g. a distributor's operating districts. */
+  districts?: { state: string; name: string }[];
 }
 
 /** One choropleth value, keyed by state or district name (case-insensitive). */
@@ -114,5 +118,8 @@ export function validateSpec(spec: unknown): SpecError[] {
   for (const [i, r] of (s.routes ?? []).entries())
     if (!Array.isArray(r?.points) || r.points.length < 2)
       errors.push({ path: `routes[${i}].points`, message: "a route needs at least two points." });
+  for (const [i, d] of (s.map?.districts ?? []).entries())
+    if (!d || typeof d.state !== "string" || !d.state.trim() || typeof d.name !== "string" || !d.name.trim())
+      errors.push({ path: `map.districts[${i}]`, message: "each district needs a state and a name." });
   return errors;
 }

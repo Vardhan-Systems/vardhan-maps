@@ -68,6 +68,52 @@ e.g. a regional tracking map that must not show the whole country:
 />
 ```
 
+For a **hard clip** (mask everything outside, not just dim it) use `clipToStates` — it
+draws only the named states and fills the exterior with `clipColor`:
+
+```tsx
+<IndiaMap mode="leaflet" level="both" vector clipToStates stateNames={["Telangana"]} />
+```
+
+**Down to specific districts** — a distributor working in a few districts, not whole
+states. Pass state-qualified `districts` (names can't collide across states) with
+`clipToDistricts`: it draws only those districts **and their enclosing state boundary**,
+fits to their union, and hard-clips the basemap outside it:
+
+```tsx
+<IndiaMap
+  mode="leaflet" vector clipToDistricts
+  districts={[
+    { state: "Telangana", name: "Nalgonda" },
+    { state: "Telangana", name: "Khammam" },
+    { state: "Telangana", name: "Bhadradri Kothagudem" },
+  ]}
+/>
+```
+
+(From the AI spec: set `map.districts: [{ state, name }]` on a `VardhanMapSpec` — see
+the `vardhan-maps/spec` subpath below.)
+
+## AI map spec (`vardhan-maps/spec`)
+
+For AI agents / tools that describe a map instead of wiring the renderer: build a small
+serialisable `VardhanMapSpec` and render it.
+
+```ts
+import { validateSpec, specToLeafletProps, renderSpecToSvg } from "vardhan-maps/spec";
+
+const spec = {
+  version: "1",
+  map: { region: "district", districts: [{ state: "Telangana", name: "Nalgonda" }] },
+  visualization: "choropleth",
+  data: [{ key: "Nalgonda", value: 42 }], // keyed by state/district name (case-insensitive)
+} as const;
+
+validateSpec(spec);                          // [] when valid
+<IndiaLeafletMap {...specToLeafletProps(spec)} />;  // interactive
+const svg = await renderSpecToSvg(spec);     // dependency-free SVG (static preview)
+```
+
 ## Your own tiles (any region / self-hosting)
 
 The default tiles cover only TG+AP. For other regions, build your own and pass the

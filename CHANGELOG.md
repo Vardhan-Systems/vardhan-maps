@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.17.0
+
+- **District focus / clip — "these districts only" maps.** For a distributor (or any
+  client) that operates in a handful of districts rather than all of India, the map
+  can now scope to a specific SET of districts instead of the whole country:
+  - `IndiaLeafletMap` gains **`districts: { state, name }[]`** (state-qualified, so
+    names can't collide across states) — it draws **only those districts AND their
+    enclosing state boundary**, and fits the view to their union. Pair with
+    **`clipToDistricts`** to hard-clip the basemap outside the districts' union
+    (fill with `clipColor`), mirroring `clipToStates` at district level.
+  - `vardhan-maps/spec`: `map.districts: { state, name }[]` on `VardhanMapSpec`
+    (validated); `specToLeafletProps` maps it to the district focus/clip.
+  - Additive — maps without `districts` are unchanged.
+
 ## 0.16.0
 
 - **New subpath `vardhan-maps/spec` — an AI/tool-friendly map contract.** Instead

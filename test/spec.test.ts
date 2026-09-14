@@ -38,6 +38,12 @@ describe("validateSpec", () => {
     expect(errs.some((e) => e.path === "data[0].key")).toBe(true);
     expect(errs.some((e) => e.path === "data[0].value")).toBe(true);
   });
+  it("flags a district-focus entry missing its state or name, accepts a good one", () => {
+    const bad = validateSpec({ version: "1", map: { region: "district", districts: [{ state: "Telangana", name: "" }] }, visualization: "default" });
+    expect(bad.some((e) => e.path === "map.districts[0]")).toBe(true);
+    const good = validateSpec({ version: "1", map: { region: "district", districts: [{ state: "Telangana", name: "Nalgonda" }] }, visualization: "default" });
+    expect(good).toEqual([]);
+  });
   it("requires markers/routes for their visualizations, with valid geometry", () => {
     expect(validateSpec({ version: "1", map: { region: "india" }, visualization: "markers" }).some((e) => e.path === "markers")).toBe(true);
     expect(validateSpec({ version: "1", map: { region: "india" }, visualization: "routes" }).some((e) => e.path === "routes")).toBe(true);
@@ -79,6 +85,19 @@ describe("specToLeafletProps", () => {
     expect(p.stateName).toBe("Telangana");
     expect(p.clipToStates).toBe(true);
     expect(p.districtFill?.("Khammam", {} as never)).toMatchObject({ fillColor: expect.any(String) });
+  });
+  it("a district focus draws only those districts + clips to them (not states)", () => {
+    const p = specToLeafletProps({
+      version: "1",
+      map: { region: "district", districts: [{ state: "Telangana", name: "Nalgonda" }, { state: "Telangana", name: "Khammam" }] },
+      visualization: "choropleth",
+      data: [{ key: "Nalgonda", value: 10 }],
+    });
+    expect(p.level).toBe("district");
+    expect(p.districts).toHaveLength(2);
+    expect(p.clipToDistricts).toBe(true);
+    expect(p.clipToStates).toBe(false);
+    expect(p.districtFill?.("Nalgonda", {} as never)).toMatchObject({ fillColor: expect.any(String) });
   });
   it("markers pass through and fit-to-data", () => {
     const p = specToLeafletProps({ version: "1", map: { region: "india" }, visualization: "markers", markers: [{ lat: 17, lng: 78, label: "HQ" }] });

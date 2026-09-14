@@ -182,6 +182,11 @@ const svg = await renderSpecToSvg(spec);  // dependency-free SVG string (static 
   `state`/`states`). `visualization`: `default` · `choropleth` · `markers` · `routes` ·
   `heatmap`. Choropleth `data` is keyed by state/district **name** (case-insensitive);
   `markers`/`routes` use `lat`/`lng`.
+- `map.districts: { state, name }[]` focuses on a **specific set of districts** (state-
+  qualified) — draws only those + their state boundary, fits and hard-clips to them.
+  For a client working in a few districts (e.g. Nalgonda, Suryapet, Khammam, Bhadradri
+  Kothagudem) instead of all of India. The same is available directly on the renderer as
+  `<IndiaLeafletMap districts={[…]} clipToDistricts />`.
 - `specToLeafletProps` is pure — build props from a stored spec at render time.
 - `renderSpecToSvg` draws boundaries + choropleth + hover titles; markers/routes are
   interactive-only (use the Leaflet renderer for those).

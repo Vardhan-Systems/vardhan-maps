@@ -7,6 +7,7 @@
  *   - `vardhan-maps/data`  → GeoJSON + accessors (getStates/getDistricts/…)
  *   - `vardhan-maps/svg`   → renderIndiaSvg() (dependency-free SVG string)
  *   - `vardhan-maps/react` → <IndiaMap mode="svg" | "leaflet" />
+ *   - `vardhan-maps/spec`  → VardhanMapSpec contract + renderers (AI/tool-friendly)
  */
 export type {
   StateProps,
@@ -20,4 +21,4 @@ export type {
 } from "./data/types";
 export type { Resolution } from "./data";
 
-export const VERSION = "0.4.0";
+export const VERSION = "0.16.0";

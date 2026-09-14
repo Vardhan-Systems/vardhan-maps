@@ -16,6 +16,7 @@ export default defineConfig({
     "svg/index": "src/svg/index.ts",
     "react/index": "src/react/index.ts",
     "react-native/index": "src/react-native/index.ts",
+    "spec/index": "src/spec/index.ts",
   },
   format: ["esm"],
   dts: true,

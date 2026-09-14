@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.16.0
+
+- **New subpath `vardhan-maps/spec` — an AI/tool-friendly map contract.** Instead
+  of an AI emitting raw SVG or wiring the renderer API, it produces a small,
+  serialisable `VardhanMapSpec` (region india/state/district; visualization
+  default/choropleth/markers/routes/heatmap; choropleth `data` keyed by state or
+  district name; `markers`/`routes` as lat/lng; `options` for title/legend/tooltip/
+  basemap/colours) and this package renders it:
+  - `validateSpec(spec)` — returns a list of problems (empty when valid).
+  - `specToLeafletProps(spec)` — turns a spec into props for the interactive
+    `<IndiaLeafletMap>` (data-driven choropleth fills, markers, routes, basemap,
+    focus/clip). Pure — build props from a stored spec at render time.
+  - `renderSpecToSvg(spec)` — a dependency-free SVG string for a static preview
+    (choropleth + boundaries + hover titles; markers/routes are interactive-only).
+  - `buildColorScale(values, colors?)` — the bucketed choropleth colour scale.
+  Additive; no existing subpath changes.
+- **Fix:** the top-level `VERSION` constant was stale (`0.4.0`); it now tracks the
+  package version.
+
 ## 0.15.0
 
 - **`clipToStates` — a "these states only" map** (`IndiaLeafletMap` + `IndiaMapNative`).

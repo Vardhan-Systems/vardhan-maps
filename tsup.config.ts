@@ -29,5 +29,6 @@ export default defineConfig({
     "react", "react/jsx-runtime", "react-native",
     "leaflet", "maplibre-gl", "@maplibre/maplibre-gl-leaflet", "pmtiles",
     "@maplibre/maplibre-react-native",
+    "topojson-client", "topojson-server",
   ],
 });

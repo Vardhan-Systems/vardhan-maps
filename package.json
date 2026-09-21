@@ -1,6 +1,6 @@
 {
   "name": "vardhan-maps",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "description": "Standard India map built on OpenStreetMap: state + district boundaries (aligned to the official Government of India depiction) as GeoJSON, dependency-free SVG + Leaflet/React renderers, and an optional self-hosted light-grey vector basemap (roads + labels, no POI) that works out of the box.",
   "license": "MIT",
   "author": "Vardhan Systems",
@@ -55,13 +55,21 @@
     "@maplibre/maplibre-gl-leaflet": ">=0.0.19",
     "@maplibre/maplibre-react-native": ">=10",
     "leaflet": ">=1.9",
-    "maplibre-gl": ">=3 <5",
+    "maplibre-gl": ">=3 <5 || >=6.4.1",
     "pmtiles": ">=3",
     "react": ">=18",
-    "react-native": ">=0.73"
+    "react-native": ">=0.73",
+    "topojson-client": ">=3",
+    "topojson-server": ">=3"
   },
   "peerDependenciesMeta": {
     "leaflet": {
+      "optional": true
+    },
+    "topojson-client": {
+      "optional": true
+    },
+    "topojson-server": {
       "optional": true
     },
     "react": {
@@ -89,6 +97,8 @@
     "@types/geojson": "^7946.0.14",
     "@types/leaflet": "^1.9.12",
     "@types/react": "^18.3.12",
+    "@types/topojson-client": "^3.1.5",
+    "@types/topojson-server": "^3.0.4",
     "leaflet": "^1.9.4",
     "maplibre-gl": "^6.8.0",
     "osmtogeojson": "^3.0.0-beta.5",
@@ -96,6 +106,8 @@
     "polygon-clipping": "^0.15.7",
     "react": "^18.3.1",
     "react-native": "0.86.0",
+    "topojson-client": "^3.1.0",
+    "topojson-server": "^3.0.1",
     "tsup": "^8.3.5",
     "typescript": "^5.6.3",
     "vitest": "^2.1.8"

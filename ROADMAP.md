@@ -1,5 +1,15 @@
 # Roadmap
 
+## Shipped (v0.18, on npm)
+
+- **maplibre-gl v6 support** — `workerUrl` prop points MapLibre at a self-hosted
+  render worker (`maplibre-gl-worker.mjs`) so the vector basemap works under bundlers/
+  hosts that don't serve v6's emitted ESM worker chunk (e.g. Next.js on Cloudflare).
+  v4 still works with no config; peer range widened to `>=3 <5 || >=6.4.1`.
+- **`crispBorders`** — de-duplicated TopoJSON boundary mesh (each shared edge stroked
+  once; no doubled borders, no state outline over district edges), fills stay
+  interactive. Opt-in; optional `topojson-client` + `topojson-server` peers.
+
 ## Shipped (v0.17, on npm)
 
 - **Data** — all 36 states/UTs + 787 districts from OpenStreetMap, GoI border

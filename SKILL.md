@@ -35,16 +35,31 @@ for `vectorStyle={vectorBasemapStyle()}`.
 Peer deps for the vector basemap (all optional; install when you use it):
 
 ```bash
+# maplibre-gl v4 works as-is; v6 also works but REQUIRES `workerUrl` (see footgun #1).
 npm add leaflet react maplibre-gl@^4 @maplibre/maplibre-gl-leaflet pmtiles
 ```
 
 ## 🚨 Footguns (these cost real debugging time)
 
-1. **maplibre-gl MUST be v3 or v4 — NOT v5/v6.** v6 silently fails to load the
-   `pmtiles://` source: `map.isStyleLoaded()` stays `false`, **no error is thrown**,
-   and you get only the grey background with your border overlays but *no roads/
-   labels*. Pin `"maplibre-gl": "^4.7.1"`. (The map's canvas mounting is not proof it
-   works — check `isSourceLoaded('osm')`.)
+1. **maplibre-gl v6 works ONLY when you pass `workerUrl`.** v3/v4 work out of the
+   box. v6 loads its render worker as an ESM **module worker** chunk emitted by the
+   bundler; hosts that don't serve that chunk (e.g. **Next.js / OpenNext on
+   Cloudflare**) 404 it → *"module script … text/html"* → the worker never starts and
+   the canvas paints **nothing** (grey background + your border overlays, but no roads/
+   labels; no error thrown). Fix: self-host the worker and point maplibre at it —
+   copy `node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs` into your served static
+   assets and pass its URL:
+
+   ```tsx
+   // e.g. cp node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs public/
+   <IndiaMap mode="leaflet" vector workerUrl="/maplibre-gl-worker.mjs" />
+   ```
+
+   `IndiaMap` applies it via `maplibregl.setWorkerUrl()` once, before the first map is
+   created. Verify the `.mjs` is served with a **JS MIME type** (not `text/html`) and
+   that roads/labels render (canvas mounting alone is not proof — check
+   `isSourceLoaded('osm')`). Staying on `"maplibre-gl": "^4.7.1"` avoids the worker
+   entirely and needs no `workerUrl`.
 2. **Client-only.** Render the Leaflet map behind `next/dynamic` with `ssr: false`
    (or otherwise never on the server). It touches `window`/`document`.
 3. **Next.js / Turbopack cache.** After changing the `vardhan-maps` dependency (or a
@@ -150,6 +165,17 @@ Tile requirements:
 - `fitTo="data"` frames markers/routes **once** so live updates don't re-zoom.
 - Boundaries are drawn **on top of** the basemap, so they always show even where the
   basemap tiles don't cover — good for the state/district outlines.
+- `crispBorders` — draw boundaries as a single **de-duplicated line mesh** so every
+  shared edge is stroked once (no doubled/spiky borders, and with `level="both"` the
+  state outline isn't redrawn over the district edges). Fills stay separate and fully
+  interactive (choropleth / hover / click / labels unaffected). Off by default; needs
+  the optional peers `topojson-client` + `topojson-server` (`npm add topojson-client
+  topojson-server`) — without them it falls back to per-polygon outlines.
+
+  ```tsx
+  <IndiaMap mode="leaflet" level="both" vector crispBorders
+    stateNames={["Telangana"]} clipToStates />
+  ```
 
 ## Attribution
 

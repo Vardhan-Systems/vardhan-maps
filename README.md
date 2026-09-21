@@ -154,6 +154,11 @@ everything outside India) are on unless you disable them. It also supports:
   style them and each point's `label` shows on hover.
 - `fitTo` is `"india"` (default when locked), `"data"` (fit to markers/routes once),
   or `"none"` (you set `center`/`zoom`).
+- `crispBorders` — draw boundaries as one **de-duplicated line mesh** so shared edges
+  are stroked once (no doubled/spiky borders; with `level="both"` the state outline
+  isn't redrawn over district edges). Fills stay interactive (choropleth/hover/click/
+  labels unaffected). Off by default; needs the optional peers `topojson-client` +
+  `topojson-server`, else it falls back to per-polygon outlines.
 
 ## AI map spec (`vardhan-maps/spec`)
 
@@ -207,6 +212,13 @@ import "maplibre-gl/dist/maplibre-gl.css";
 // Zero-config: Vardhan Systems' hosted Telangana + Andhra Pradesh basemap.
 <IndiaMap mode="leaflet" level="both" vector style={{ height: 520 }} />
 ```
+
+> **maplibre-gl v6:** v3/v4 work out of the box; **v6 needs `workerUrl`.** Under
+> bundlers/hosts that don't serve maplibre's emitted ESM worker chunk (e.g. Next.js
+> on Cloudflare) the worker 404s and the map paints nothing. Copy
+> `node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs` into your served assets and
+> pass `workerUrl="/maplibre-gl-worker.mjs"` — `IndiaMap` calls
+> `maplibregl.setWorkerUrl()` once before the first map is created.
 
 `vector` is a shortcut for `vectorStyle={vectorBasemapStyle()}`. To point at your
 own tiles (any region, self-hosted), build the style yourself — `pmtilesUrl` and

@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.18.0
+
+- **maplibre-gl v6 support (`workerUrl`).** The vector basemap now works with
+  maplibre-gl **v6**, not just v3/v4. v6 loads its render worker as an ESM module
+  worker chunk emitted by the bundler; hosts that don't serve that chunk (e.g.
+  Next.js / OpenNext on Cloudflare) 404 it, the worker never starts and the canvas
+  paints nothing. New optional **`workerUrl`** prop on `IndiaMap` / `IndiaLeafletMap`
+  points maplibre at a self-hosted worker script — copy
+  `maplibre-gl/dist/maplibre-gl-worker.mjs` into your served assets and pass
+  `workerUrl="/maplibre-gl-worker.mjs"`. Applied once via `maplibregl.setWorkerUrl()`
+  before the first map is created. Web-only (no effect on the React Native renderer).
+  Peer range widened: `"maplibre-gl": ">=3 <5 || >=6.4.1"`. v4 still needs no
+  `workerUrl`.
+- **`crispBorders` — de-duplicated boundary mesh.** New opt-in prop on
+  `IndiaLeafletMap` that draws boundaries as a single TopoJSON line **mesh** instead
+  of each polygon's own outline, so every shared edge is stroked exactly once — no
+  more doubled / spiky borders, and with `level="both"` the state outline is no longer
+  redrawn over the district edges. Applies to both the district and state layers.
+  Fills are drawn separately and stay fully interactive (choropleth / hover / click /
+  labels unaffected). Off by default; requires the new **optional** peers
+  `topojson-client` + `topojson-server` — without them it silently falls back to the
+  previous per-polygon outlines. Additive: maps without `crispBorders` are unchanged.
+
 ## 0.17.0
 
 - **District focus / clip — "these districts only" maps.** For a distributor (or any

@@ -5,6 +5,7 @@ import { indiaOutline, loadAllDistricts, loadDistricts, states as allStates, typ
 import { bboxOf } from "../core/geo";
 import type { DistrictFeature, DistrictProps, StateProps } from "../data/types";
 import { vectorBasemapStyle, type VectorStyle } from "./vector";
+import { buildBorderMesh } from "./border-mesh";
 
 /** A point to plot on the map (e.g. a customer, store, city, live position). */
 export interface MapMarker {
@@ -88,6 +89,26 @@ export interface IndiaLeafletMapProps {
    * and `pmtiles`.
    */
   vectorStyle?: VectorStyle | string;
+  /**
+   * Point MapLibre GL at a SELF-HOSTED render-worker script instead of the one
+   * the bundler emits. Required for **maplibre-gl v6** under bundlers/hosts that
+   * don't serve the emitted ESM worker chunk (e.g. Next.js on Cloudflare) — there
+   * the worker 404s and the canvas paints nothing. Copy
+   * `maplibre-gl/dist/maplibre-gl-worker.mjs` into your served static assets and
+   * pass its URL (e.g. `workerUrl="/maplibre-gl-worker.mjs"`). Applied once,
+   * before the first map is created (via `maplibregl.setWorkerUrl`). Web-only
+   * (no effect on the React Native renderer). v3/v4 don't need it.
+   */
+  workerUrl?: string;
+  /**
+   * Draw boundaries as a single de-duplicated line mesh instead of each polygon's
+   * own outline, so shared edges are stroked **once** (no doubled / spiky borders,
+   * and the state outline isn't redrawn over district edges). Fills stay separate
+   * and interactive (choropleth / hover / click / labels all still work). Off by
+   * default. Requires the optional peers `topojson-client` + `topojson-server`;
+   * without them it silently falls back to per-polygon outlines.
+   */
+  crispBorders?: boolean;
   stateStyle?: LType.PathOptions;
   districtStyle?: LType.PathOptions;
   /** Choropleth: per-district style overrides (e.g. fill by a value). Merged over districtStyle. */
@@ -359,8 +380,17 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
           const glMod = await import("maplibre-gl");
           const maplibregl = ((glMod as { default?: unknown }).default ?? glMod) as {
             addProtocol: (n: string, h: unknown) => void;
+            setWorkerUrl?: (u: string) => void;
+            getWorkerUrl?: () => string | undefined;
           };
           (globalThis as { maplibregl?: unknown }).maplibregl = maplibregl; // the leaflet plugin reads the global
+          // maplibre-gl v6 loads its render worker as an ESM module worker chunk;
+          // hosts that don't serve that chunk (e.g. Next on Cloudflare) 404 it and
+          // the canvas paints nothing. Point it at a self-hosted worker script.
+          // Must run once, before the first Map is created.
+          if (props.workerUrl && maplibregl.setWorkerUrl && maplibregl.getWorkerUrl?.() !== props.workerUrl) {
+            maplibregl.setWorkerUrl(props.workerUrl);
+          }
           const pm = (await import("pmtiles")) as { Protocol: new () => { tile: unknown } };
           if (!vmPmtilesRegistered) {
             maplibregl.addProtocol("pmtiles", new pm.Protocol().tile);
@@ -460,11 +490,18 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
           color: "#94a3b8", weight: 0.8, fillColor: "#f1f5f9",
           fillOpacity: level === "both" && !focusDistricts ? 0 : 0.5,
         };
+        // crispBorders: draw shared district edges once via a mesh. When a state
+        // outline is also drawn ("both"), keep only interior arcs so the two never
+        // overlap; the state layer supplies the outer boundary.
+        const dMesh = props.crispBorders ? await buildBorderMesh(feats, drawLevel === "both") : null;
+        if (cancelled) return;
         boundary.push(
           L.geoJSON({ type: "FeatureCollection", features: feats } as unknown as GeoJsonObject, {
+            // With a mesh drawing the borders, the fills carry no stroke of their own.
             style: (feature) => {
               const p = feature?.properties as DistrictProps;
-              return { ...dBase, ...(districtFill?.(p.name, p) ?? {}) };
+              const base = dMesh ? { ...dBase, stroke: false } : dBase;
+              return { ...base, ...(districtFill?.(p.name, p) ?? {}) };
             },
             onEachFeature: (f, layer) => {
               const p = f.properties as DistrictProps;
@@ -475,6 +512,9 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
             },
           }),
         );
+        if (dMesh) {
+          boundary.push(L.geoJSON(dMesh, { interactive: false, style: { ...dBase, fill: false } }));
+        }
       }
       if (drawLevel !== "district") {
         const sBase = props.stateStyle ?? {
@@ -486,11 +526,16 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
         const stateFeats = wantStates
           ? allStates.features.filter((f) => wantStates.includes((f.properties as StateProps).name))
           : allStates.features;
+        // crispBorders: de-duplicate shared state edges (adjacent states + the
+        // outer hull) into a single mesh. Full outline here (interiorOnly=false).
+        const sMesh = props.crispBorders ? await buildBorderMesh(stateFeats, false) : null;
+        if (cancelled) return;
         boundary.push(
           L.geoJSON({ type: "FeatureCollection", features: stateFeats } as unknown as GeoJsonObject, {
             style: (feature) => {
               const p = feature?.properties as StateProps;
-              return { ...sBase, ...(stateFill?.(p.name, p) ?? {}) };
+              const base = sMesh ? { ...sBase, stroke: false } : sBase;
+              return { ...base, ...(stateFill?.(p.name, p) ?? {}) };
             },
             onEachFeature: (f, layer) => {
               const p = f.properties as StateProps;
@@ -501,6 +546,9 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
             },
           }),
         );
+        if (sMesh) {
+          boundary.push(L.geoJSON(sMesh, { interactive: false, style: { ...sBase, fill: false } }));
+        }
       }
       if (cancelled) return;
 

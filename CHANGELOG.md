@@ -2,6 +2,12 @@
 
 ## 0.18.0
 
+- **Fix: teardown crash during a fit animation.** `IndiaLeafletMap` now calls
+  `map.stop()` before `map.remove()` on unmount, cancelling any in-flight
+  `flyToBounds`/`flyTo` animation. Without it, the animation's pending
+  `requestAnimationFrame` could fire after the map was destroyed and call
+  `getZoom()` / read `_leaflet_pos` on a null map ("Cannot read properties of null
+  (reading 'getZoom')"), e.g. when navigating away mid-fly.
 - **maplibre-gl v6 support (`workerUrl`).** The vector basemap now works with
   maplibre-gl **v6**, not just v3/v4. v6 loads its render worker as an ESM module
   worker chunk emitted by the bundler; hosts that don't serve that chunk (e.g.

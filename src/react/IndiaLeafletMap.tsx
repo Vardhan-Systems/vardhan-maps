@@ -455,6 +455,10 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
     return () => {
       cancelled = true;
       destroyTimer.current = setTimeout(() => {
+        // Cancel any in-flight flyToBounds/flyTo animation before teardown — its
+        // pending requestAnimationFrame would otherwise fire after remove() and
+        // call getZoom()/read `_leaflet_pos` on the destroyed map (a null crash).
+        try { mapRef.current?.stop(); } catch { /* already torn down */ }
         try { mapRef.current?.remove(); } catch { /* container already detached */ }
         mapRef.current = null;
         overlayRef.current = null;

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.19.0
+
+- **Route points: separate fill + border.** `MapRoute` adds `pointFillColor`,
+  `pointBorderColor`, and `pointBorderWeight` so per-ping dots can have a
+  distinct core and ring (e.g. a white core with a coloured ring for a GPS
+  trail). Backward compatible — without them, points keep the old look
+  (`pointColor` fill + white border).
+
 ## 0.18.1
 
 - **Fix: teardown crash during a fit animation.** `IndiaLeafletMap` now calls

@@ -58,6 +58,12 @@ export interface MapRoute {
   pointColor?: string;
   /** Radius of the per-point dots in px (default 3). */
   pointRadius?: number;
+  /** Fill colour of the per-point dots (default = `pointColor` / line colour). */
+  pointFillColor?: string;
+  /** Border (stroke) colour of the per-point dots (default white). */
+  pointBorderColor?: string;
+  /** Border (stroke) width of the per-point dots in px (default 1). */
+  pointBorderWeight?: number;
 }
 
 export interface IndiaLeafletMapProps {
@@ -576,8 +582,9 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
         if (r.showPoints) {
           for (const p of r.points) {
             const dot = L.circleMarker([p.lat, p.lng], {
-              radius: r.pointRadius ?? 3, color: "#ffffff", weight: 1,
-              fillColor: r.pointColor ?? r.color ?? "#2563eb", fillOpacity: 1,
+              radius: r.pointRadius ?? 3,
+              color: r.pointBorderColor ?? "#ffffff", weight: r.pointBorderWeight ?? 1,
+              fillColor: r.pointFillColor ?? r.pointColor ?? r.color ?? "#2563eb", fillOpacity: 1,
             });
             if (p.label) dot.bindTooltip(p.label, { direction: "top" });
             dot.addTo(group);

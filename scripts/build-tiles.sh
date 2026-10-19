@@ -17,20 +17,53 @@ PLANETILER_URL="https://github.com/onthegomap/planetiler/releases/latest/downloa
 # Robust download: retry transient network errors (connection resets etc.), which
 # the upstream OSM data servers are prone to. Far more resilient than Planetiler's
 # single-shot HTTP client.
-dl() { curl -fSL --retry 6 --retry-delay 5 --retry-all-errors --connect-timeout 30 -o "$1" "$2"; }
+#
+# Geofabrik occasionally answers with a redirect loop (a tiny ~264-byte interstitial
+# returned over and over) when a request looks like an un-identified bot — curl then
+# follows up to its default 50 redirects and dies with "exit 47: Maximum redirects
+# followed", which is exactly how the 2026-10-01 scheduled run failed. We defend
+# against that three ways:
+#   1. Send a real User-Agent so Geofabrik serves the file instead of the loop.
+#   2. Cap --max-redirs low so a loop fails fast instead of burning 50 hops.
+#   3. Wrap the whole fetch in our own retry loop AND validate the result is at
+#      least a plausible minimum size — a tiny interstitial page is rejected and
+#      re-fetched rather than silently accepted or fatally aborting the build.
+#
+# Usage: dl <out> <url> [min_bytes]   (min_bytes defaults to 1024)
+UA="vardhan-maps-tile-builder/1.0 (+https://github.com/Vardhan-Systems/vardhan-maps)"
+dl() {
+  local out="$1" url="$2" min="${3:-1024}" attempt=0 max=5 size
+  while [ "$attempt" -lt "$max" ]; do
+    attempt=$((attempt + 1))
+    rm -f "$out"
+    if curl -fSL --retry 4 --retry-delay 5 --retry-all-errors \
+         --connect-timeout 30 --max-redirs 10 -A "$UA" -o "$out" "$url"; then
+      size=$(wc -c < "$out" 2>/dev/null || echo 0)
+      if [ "$size" -ge "$min" ]; then
+        return 0
+      fi
+      echo "[$(date -u +%H:%M:%S)] $out is only ${size}B (< ${min}B) — looks like a bad/interstitial response; retry ${attempt}/${max}" >&2
+    else
+      echo "[$(date -u +%H:%M:%S)] curl failed for $url (attempt ${attempt}/${max})" >&2
+    fi
+    [ "$attempt" -lt "$max" ] && sleep $((attempt * 15))
+  done
+  echo "Failed to download a valid $url after ${max} attempts" >&2
+  return 1
+}
 
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 
 echo "[$(date -u +%H:%M:%S)] Downloading India OSM extract (Geofabrik, ~1.6 GB)…"
-dl india.osm.pbf "$INDIA_URL"
+dl india.osm.pbf "$INDIA_URL" 104857600   # expect >= 100 MB; reject interstitial pages
 
 echo "[$(date -u +%H:%M:%S)] Clipping to Telangana + Andhra Pradesh bbox…"
 osmium extract -b "$BBOX" india.osm.pbf -o tgap.osm.pbf --overwrite -s complete_ways
 rm -f india.osm.pbf   # reclaim disk before the tile build
 
 echo "[$(date -u +%H:%M:%S)] Downloading Planetiler…"
-dl planetiler.jar "$PLANETILER_URL"
+dl planetiler.jar "$PLANETILER_URL" 10485760   # expect >= 10 MB
 
 # Pre-fetch Planetiler's background sources with our robust downloader, into the
 # dir Planetiler reads (`data/sources`), so `--download` finds them and skips its
@@ -39,9 +72,9 @@ dl planetiler.jar "$PLANETILER_URL"
 echo "[$(date -u +%H:%M:%S)] Pre-fetching background sources (water polygons, natural earth)…"
 mkdir -p data/sources
 dl data/sources/water-polygons-split-3857.zip \
-  "https://osmdata.openstreetmap.de/download/water-polygons-split-3857.zip" || true
+  "https://osmdata.openstreetmap.de/download/water-polygons-split-3857.zip" 1048576 || true
 dl data/sources/natural_earth_vector.sqlite.zip \
-  "https://naciscdn.org/naturalearth/packages/natural_earth_vector.sqlite.zip" || true
+  "https://naciscdn.org/naturalearth/packages/natural_earth_vector.sqlite.zip" 1048576 || true
 
 echo "[$(date -u +%H:%M:%S)] Building vector tiles (OpenMapTiles schema)…"
 # Retry the build a few times: any source Planetiler still fetches itself can hit a

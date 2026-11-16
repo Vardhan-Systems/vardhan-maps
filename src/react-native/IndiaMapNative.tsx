@@ -12,7 +12,7 @@ import type {
 } from "@maplibre/maplibre-react-native";
 import { loadAllDistricts, loadDistricts } from "../data";
 import { getStates } from "../data";
-import { vectorBasemapStyle } from "../react/vector";
+import { vectorBasemapStyle, stateTilesUrl } from "../react/vector";
 import {
   boundsFromLeaflet,
   dataBounds,
@@ -83,10 +83,13 @@ export function IndiaMapNative(props: IndiaMapNativeProps) {
   const clipStates = clipToStates ? (maskStates ?? stateNames ?? null) : null;
 
   const mapStyle = useMemo(() => {
-    const s = vectorStyle ?? vectorBasemapStyle();
+    // When a single state is focused and it has its own hosted tiles, use them;
+    // otherwise the default Telangana + Andhra Pradesh set.
+    const statePmtiles = stateName ? stateTilesUrl(stateName) : undefined;
+    const s = vectorStyle ?? vectorBasemapStyle(statePmtiles ? { pmtilesUrl: statePmtiles } : {});
     void vector; // basemap is always the vector style; `vector` kept for API parity
     return typeof s === "string" ? s : JSON.stringify(s);
-  }, [vectorStyle, vector]);
+  }, [vectorStyle, vector, stateName]);
 
   const stateBase = base(stateStyle, STATE_D);
   const distBase = base(districtStyle, DIST_D);

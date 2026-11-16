@@ -104,6 +104,35 @@ const DEFAULT_PMTILES = `${VARDHAN_TILES_ORIGIN}/beyond-tgap.pmtiles`;
 const DEFAULT_GLYPHS = `${VARDHAN_TILES_ORIGIN}/fonts/{fontstack}/{range}.pbf`;
 const DEFAULT_FONT_STACK = "Noto Sans Regular";
 
+/**
+ * Which states Vardhan Systems hosts self-hosted basemap tiles for, mapped to the
+ * `.pmtiles` object that covers them. The basemap is built one state at a time
+ * (see `scripts/build-tiles.sh`); Telangana + Andhra Pradesh share the original
+ * combined `beyond-tgap.pmtiles`, and each newly-added state gets its own
+ * `beyond-<slug>.pmtiles`. Add a state's slug here once its tiles are published.
+ */
+export const HOSTED_STATE_TILES: Readonly<Record<string, string>> = {
+  telangana: "beyond-tgap.pmtiles",
+  "andhra-pradesh": "beyond-tgap.pmtiles",
+  karnataka: "beyond-karnataka.pmtiles",
+};
+
+const stateSlug = (name: string) =>
+  name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+/**
+ * URL of the hosted `.pmtiles` that covers a state, or `undefined` if that state
+ * has no hosted tiles yet. Pass the result as `vectorBasemapStyle({ pmtilesUrl })`
+ * to render that state's own basemap. Accepts a state name (e.g. "Karnataka").
+ */
+export function stateTilesUrl(
+  stateName: string,
+  origin: string = VARDHAN_TILES_ORIGIN,
+): string | undefined {
+  const file = HOSTED_STATE_TILES[stateSlug(stateName)];
+  return file ? `${origin}/${file}` : undefined;
+}
+
 const SRC = "osm"; // our single vector source id
 
 /** Build the `text-field` expression: preferred lang → English → local name. */

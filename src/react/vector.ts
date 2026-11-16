@@ -115,6 +115,7 @@ export const HOSTED_STATE_TILES: Readonly<Record<string, string>> = {
   telangana: "beyond-tgap.pmtiles",
   "andhra-pradesh": "beyond-tgap.pmtiles",
   karnataka: "beyond-karnataka.pmtiles",
+  "tamil-nadu": "beyond-tamil-nadu.pmtiles",
 };
 
 const stateSlug = (name: string) =>

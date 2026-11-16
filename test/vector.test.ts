@@ -9,6 +9,7 @@ import {
 describe("stateTilesUrl", () => {
   it("returns each hosted state's own .pmtiles URL", () => {
     expect(stateTilesUrl("Karnataka")).toBe(`${VARDHAN_TILES_ORIGIN}/beyond-karnataka.pmtiles`);
+    expect(stateTilesUrl("Tamil Nadu")).toBe(`${VARDHAN_TILES_ORIGIN}/beyond-tamil-nadu.pmtiles`);
   });
 
   it("maps Telangana and Andhra Pradesh to the combined tgap tiles", () => {

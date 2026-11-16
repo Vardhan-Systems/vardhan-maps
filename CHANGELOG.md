@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.20.0
+
+- **Per-state vector basemaps.** The self-hosted basemap now ships as one
+  `.pmtiles` per state instead of only Telangana + Andhra Pradesh.
+  `IndiaLeafletMap` and the React Native renderer **auto-select the focused
+  state's own tiles** when the vector basemap is on and `stateName` is set, so a
+  map focused on, say, Karnataka renders Karnataka's roads. States without hosted
+  tiles fall back to the default Telangana + Andhra Pradesh set, and an explicit
+  `vectorStyle` still wins — so this is fully backward compatible.
+- **New exports** from `vardhan-maps/react` and `vardhan-maps/react-native`:
+  `stateTilesUrl(stateName, origin?)` resolves a hosted state's `.pmtiles` URL
+  (or `undefined`), and `HOSTED_STATE_TILES` is the state-slug → object map it
+  reads. Use `stateTilesUrl(...)` with `vectorBasemapStyle({ pmtilesUrl })` to
+  point at a specific state's tiles yourself.
+- **Hosted coverage:** Telangana + Andhra Pradesh, Karnataka, Tamil Nadu, Kerala,
+  Maharashtra, and Gujarat, with more states added over time. Same light-grey
+  style (roads + water + labels, no POI); full street detail.
+
 ## 0.19.0
 
 - **Route points: separate fill + border.** `MapRoute` adds `pointFillColor`,

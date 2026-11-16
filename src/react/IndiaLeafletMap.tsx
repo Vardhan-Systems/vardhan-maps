@@ -4,7 +4,7 @@ import type { GeoJsonObject } from "geojson";
 import { indiaOutline, loadAllDistricts, loadDistricts, states as allStates, type Resolution } from "../data";
 import { bboxOf } from "../core/geo";
 import type { DistrictFeature, DistrictProps, StateProps } from "../data/types";
-import { vectorBasemapStyle, type VectorStyle } from "./vector";
+import { vectorBasemapStyle, stateTilesUrl, type VectorStyle } from "./vector";
 import { buildBorderMesh } from "./border-mesh";
 
 /** A point to plot on the map (e.g. a customer, store, city, live position). */
@@ -376,8 +376,16 @@ export function IndiaLeafletMap(props: IndiaLeafletMapProps) {
 
       // Keep Leaflet's default attribution unless the consumer overrides the prefix.
       if (props.attributionPrefix != null) map.attributionControl.setPrefix(props.attributionPrefix);
-      // `vector` is a shortcut for the default Vardhan basemap; `vectorStyle` wins.
-      const effectiveVectorStyle = props.vectorStyle ?? (props.vector ? vectorBasemapStyle() : undefined);
+      // `vector` is a shortcut for the Vardhan basemap. When a single state is
+      // focused and that state has its own hosted tiles (e.g. Karnataka), point at
+      // them; otherwise fall back to the default Telangana + Andhra Pradesh set.
+      // An explicit `vectorStyle` always wins.
+      const statePmtiles = stateName ? stateTilesUrl(stateName) : undefined;
+      const effectiveVectorStyle =
+        props.vectorStyle ??
+        (props.vector
+          ? vectorBasemapStyle(statePmtiles ? { pmtilesUrl: statePmtiles } : {})
+          : undefined);
       if (effectiveVectorStyle) {
         // Self-hosted OSM vector basemap: a MapLibre GL canvas under the Leaflet
         // overlays (via maplibre-gl-leaflet), reading `.pmtiles` over the pmtiles

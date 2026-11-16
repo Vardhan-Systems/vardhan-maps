@@ -1,8 +1,10 @@
 name: Refresh vector basemap tiles
 
-# Rebuilds the default self-hosted basemap tiles (Telangana + Andhra Pradesh) from
-# CURRENT OpenStreetMap data and re-uploads them to Cloudflare R2, so the hosted
-# basemap stays fresh without a package release. Monthly, plus a manual trigger.
+# Rebuilds a self-hosted basemap tile set (per state) from CURRENT OpenStreetMap
+# data and re-uploads it to Cloudflare R2, so the hosted basemap stays fresh
+# without a package release. The scheduled run (no input) rebuilds the original
+# Telangana + Andhra Pradesh set; `workflow_dispatch` with a `state` input builds
+# that one state (beyond-<slug>.pmtiles). Monthly, plus the manual trigger.
 #
 # Required repo secrets (Settings → Secrets and variables → Actions):
 #   R2_ACCESS_KEY_ID       — R2 API token access key id
@@ -12,7 +14,12 @@ name: Refresh vector basemap tiles
 on:
   schedule:
     - cron: "0 3 1 * *" # 03:00 UTC on the 1st of every month
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      state:
+        description: "State to build (blank = Telangana + Andhra Pradesh default set). E.g. Karnataka"
+        required: false
+        default: ""
 
 concurrency:
   group: refresh-tiles
@@ -20,7 +27,9 @@ concurrency:
 
 env:
   R2_BUCKET: beyond-basemap
-  PMTILES: beyond-tgap.pmtiles
+  # PMTILES (the object name) is resolved per-run from the `state` input by the
+  # "Resolve target" step below: a state builds beyond-<slug>.pmtiles, and the
+  # default (scheduled, no input) run builds beyond-tgap.pmtiles as before.
 
 jobs:
   build-and-upload:
@@ -42,8 +51,14 @@ jobs:
       - name: Install osmium + rclone
         run: sudo apt-get update && sudo apt-get install -y osmium-tool rclone
 
+      - name: Resolve target .pmtiles name
+        run: |
+          OUT=$(node scripts/state-tiles-meta.mjs "${{ github.event.inputs.state }}" | sed -n 's/^OUT=//p')
+          echo "PMTILES=$OUT" >> "$GITHUB_ENV"
+          echo "Will build and upload: $OUT"
+
       - name: Build tiles
-        run: bash scripts/build-tiles.sh /mnt/tiles
+        run: bash scripts/build-tiles.sh /mnt/tiles "${{ github.event.inputs.state }}"
 
       - name: Upload to R2
         env:

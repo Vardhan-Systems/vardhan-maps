@@ -11,5 +11,5 @@ export type {
   VectorStyle,
 } from "./types";
 // The basemap style builder is engine-agnostic — reuse it to customise the RN map.
-export { vectorBasemapStyle, VARDHAN_TILES_ORIGIN } from "../react/vector";
+export { vectorBasemapStyle, VARDHAN_TILES_ORIGIN, stateTilesUrl, HOSTED_STATE_TILES } from "../react/vector";
 export type { VectorBasemapOptions, GreyPalette } from "../react/vector";

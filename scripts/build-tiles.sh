@@ -1,16 +1,29 @@
 #!/usr/bin/env bash
-# Build the default self-hosted vector basemap tiles (Telangana + Andhra Pradesh)
-# from CURRENT OpenStreetMap data, as a `.pmtiles` (OpenMapTiles schema).
+# Build one self-hosted vector basemap tile set (per state) from CURRENT
+# OpenStreetMap data, as a `.pmtiles` (OpenMapTiles schema).
 #
-# Pipeline: Geofabrik India extract → osmium clip to the TG+AP bbox (one source =
-# no duplicate border nodes) → Planetiler → beyond-tgap.pmtiles.
+# Pipeline: Geofabrik India extract → osmium clip to the state's bbox (one source =
+# no duplicate border nodes) → Planetiler → beyond-<slug>.pmtiles.
 #
-# Requires: java 21+, osmium-tool, curl. Usage: scripts/build-tiles.sh [workdir]
+# Requires: java 21+, osmium-tool, curl, node.
+# Usage: scripts/build-tiles.sh [workdir] [state]
+#   state omitted  → the original Telangana + Andhra Pradesh set (beyond-tgap.pmtiles)
+#   state "Karnataka" (etc.) → that state only (beyond-karnataka.pmtiles); its bbox is
+#   derived from the shipped boundary data by scripts/state-tiles-meta.mjs.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"  # capture before we cd into WORKDIR
 WORKDIR="${1:-./tile-build}"
-BBOX="76.6,12.5,85.0,20.0"          # Telangana + Andhra Pradesh
-OUT="beyond-tgap.pmtiles"           # the filename vardhan-maps' default URL points at
+STATE="${2:-}"
+
+# SLUG / BBOX / OUT come from the boundary data, so we never hardcode 36 bboxes.
+META="$(node "$SCRIPT_DIR/state-tiles-meta.mjs" "$STATE")" || {
+  echo "Could not resolve tile metadata for state '${STATE}'" >&2
+  exit 1
+}
+eval "$META"   # sets SLUG, BBOX, OUT
+echo "[$(date -u +%H:%M:%S)] Target: ${SLUG} (bbox ${BBOX}) → ${OUT}"
+
 INDIA_URL="https://download.geofabrik.de/asia/india-latest.osm.pbf"
 PLANETILER_URL="https://github.com/onthegomap/planetiler/releases/latest/download/planetiler.jar"
 
@@ -58,8 +71,8 @@ cd "$WORKDIR"
 echo "[$(date -u +%H:%M:%S)] Downloading India OSM extract (Geofabrik, ~1.6 GB)…"
 dl india.osm.pbf "$INDIA_URL" 104857600   # expect >= 100 MB; reject interstitial pages
 
-echo "[$(date -u +%H:%M:%S)] Clipping to Telangana + Andhra Pradesh bbox…"
-osmium extract -b "$BBOX" india.osm.pbf -o tgap.osm.pbf --overwrite -s complete_ways
+echo "[$(date -u +%H:%M:%S)] Clipping to ${SLUG} bbox (${BBOX})…"
+osmium extract -b "$BBOX" india.osm.pbf -o clip.osm.pbf --overwrite -s complete_ways
 rm -f india.osm.pbf   # reclaim disk before the tile build
 
 echo "[$(date -u +%H:%M:%S)] Downloading Planetiler…"
@@ -82,7 +95,7 @@ echo "[$(date -u +%H:%M:%S)] Building vector tiles (OpenMapTiles schema)…"
 attempt=0
 until [ "$attempt" -ge 3 ]; do
   if java -Xmx6g -jar planetiler.jar \
-      --osm-path=tgap.osm.pbf \
+      --osm-path=clip.osm.pbf \
       --bounds="$BBOX" \
       --download --force \
       --output="$OUT"; then

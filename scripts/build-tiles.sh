@@ -24,7 +24,14 @@ META="$(node "$SCRIPT_DIR/state-tiles-meta.mjs" "$STATE")" || {
 eval "$META"   # sets SLUG, BBOX, OUT
 echo "[$(date -u +%H:%M:%S)] Target: ${SLUG} (bbox ${BBOX}) → ${OUT}"
 
-INDIA_URL="https://download.geofabrik.de/asia/india-latest.osm.pbf"
+# India OSM extract — Geofabrik primary, OSM France as a fallback mirror. Geofabrik
+# intermittently refuses connections from CI (it took down the Maharashtra + Gujarat
+# builds on 2026-11-16 with "curl (7): Failed to connect"); the fallback keeps the
+# rollout and the monthly cron moving when Geofabrik is unreachable.
+INDIA_URLS=(
+  "https://download.geofabrik.de/asia/india-latest.osm.pbf"
+  "https://download.openstreetmap.fr/extracts/asia/india.osm.pbf"
+)
 PLANETILER_URL="https://github.com/onthegomap/planetiler/releases/latest/download/planetiler.jar"
 
 # Robust download: retry transient network errors (connection resets etc.), which
@@ -65,11 +72,25 @@ dl() {
   return 1
 }
 
+# Try several mirrors in turn; succeed on the first that yields a valid file.
+# Usage: dl_any <out> <min_bytes> <url> [url...]
+dl_any() {
+  local out="$1" min="$2"; shift 2
+  local url
+  for url in "$@"; do
+    echo "[$(date -u +%H:%M:%S)] Source: $url" >&2
+    if dl "$out" "$url" "$min"; then return 0; fi
+    echo "[$(date -u +%H:%M:%S)] Mirror failed: $url — trying the next one…" >&2
+  done
+  echo "All mirrors failed for $out" >&2
+  return 1
+}
+
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 
 echo "[$(date -u +%H:%M:%S)] Downloading India OSM extract (Geofabrik, ~1.6 GB)…"
-dl india.osm.pbf "$INDIA_URL" 104857600   # expect >= 100 MB; reject interstitial pages
+dl_any india.osm.pbf 104857600 "${INDIA_URLS[@]}"   # Geofabrik → OSM France fallback
 
 echo "[$(date -u +%H:%M:%S)] Clipping to ${SLUG} bbox (${BBOX})…"
 osmium extract -b "$BBOX" india.osm.pbf -o clip.osm.pbf --overwrite -s complete_ways

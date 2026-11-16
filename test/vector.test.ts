@@ -28,9 +28,10 @@ describe("stateTilesUrl", () => {
     );
   });
 
-  it("returns undefined for a state with no hosted tiles yet", () => {
-    expect(stateTilesUrl("Kerala")).toBeUndefined();
+  it("returns undefined for a name with no hosted tiles", () => {
+    // Synthetic names (not real states) so this never breaks as states are added.
     expect(stateTilesUrl("not a state")).toBeUndefined();
+    expect(stateTilesUrl("Xanadu")).toBeUndefined();
   });
 
   it("every HOSTED_STATE_TILES entry points at a beyond-*.pmtiles object", () => {

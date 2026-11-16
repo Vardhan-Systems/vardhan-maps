@@ -1,4 +1,10 @@
 # Single-package repo. This file carries pnpm settings (pnpm v11 no longer reads
 # the "pnpm" field in package.json). esbuild (via tsup) needs its native binary.
+#
+# `packages` lists the root as the sole workspace member. It is required: pnpm 9
+# (used in CI) errors "packages field missing or empty" on a pnpm-workspace.yaml
+# that omits it — e.g. during setup-node's `pnpm store path` cache step.
+packages:
+  - "."
 allowBuilds:
   esbuild: true

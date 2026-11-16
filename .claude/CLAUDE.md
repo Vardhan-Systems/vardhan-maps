@@ -96,37 +96,58 @@ India-side state: J&K += PoK (Azad Kashmir); Ladakh += Gilgit-Baltistan + Aksai
 Chin. Overrides live in `data/overrides/*.geojson`. `scripts/lib/` holds the RDP
 simplifier, state-assignment, and GoI patch helpers.
 
-## Vector basemap tiles pipeline (the monthly refresh) — IMPORTANT
+## Vector basemap tiles pipeline (PER-STATE) — IMPORTANT
 
-The self-hosted basemap (`transportation`/roads, water, labels…) is **rebuilt
-monthly from current OSM data** and uploaded to Cloudflare R2, independent of any
-package release.
+The self-hosted basemap (`transportation`/roads, water, labels…) is built **one
+`.pmtiles` per state** from current OSM data and uploaded to Cloudflare R2,
+independent of any package release. Each state builds small enough for the free
+GitHub Actions runner, so coverage extends across India one state at a time.
 
 - **Workflow:** `.github/workflows/refresh-tiles.yml` — cron `0 3 1 * *` (03:00
-  UTC on the 1st of each month) + manual `workflow_dispatch`. GitHub often delays
-  scheduled runs by hours; that is normal.
-- **Build script:** `scripts/build-tiles.sh` — Geofabrik India extract → `osmium`
-  clip to the Telangana + Andhra Pradesh bbox (`76.6,12.5,85.0,20.0`) →
-  **Planetiler** (OpenMapTiles schema) → `beyond-tgap.pmtiles`.
-- **Output:** R2 bucket `beyond-basemap`, object `beyond-tgap.pmtiles`, served at
-  **`https://maps.vardhansystems.in/beyond-tgap.pmtiles`** (the default
-  `VARDHAN_TILES_ORIGIN` in `src/react/vector.ts`). Uploaded with
-  `Cache-Control: no-store` so the CDN never caches a partially-updated file read
-  via HTTP range requests. CORS is open (`*`), range requests supported.
+  UTC on the 1st of each month) + manual `workflow_dispatch` with a `state` input.
+  The scheduled run (no input) rebuilds the original Telangana + Andhra Pradesh
+  set; `workflow_dispatch` with e.g. `state=Karnataka` builds that one state.
+  GitHub often delays scheduled runs by hours; that is normal. Build one on demand:
+  `gh workflow run refresh-tiles.yml --ref <branch> -f state="Karnataka"`.
+- **Build script:** `scripts/build-tiles.sh [workdir] [state]` — India extract →
+  `osmium` clip to the state's bbox → **Planetiler** (OpenMapTiles schema) →
+  `beyond-<slug>.pmtiles`. No state arg = the TG+AP set (`beyond-tgap.pmtiles`).
+- **Bbox helper:** `scripts/state-tiles-meta.mjs "<state>"` prints `SLUG`/`BBOX`/`OUT`,
+  derived from the shipped boundary data (`states.low.json`) — no hardcoded bboxes.
+- **Output:** R2 bucket `beyond-basemap`, objects `beyond-<slug>.pmtiles`, served at
+  `https://maps.vardhansystems.in/beyond-<slug>.pmtiles` (origin =
+  `VARDHAN_TILES_ORIGIN` in `src/react/vector.ts`). Uploaded `Cache-Control:
+  no-store` so the CDN never caches a partially-updated file read via HTTP range
+  requests. CORS open (`*`), range requests supported. (Object/bucket naming kept
+  as `beyond-*` for now — a rename to `vardhan-*` was deferred.)
 - **Secrets required:** `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`.
 
+**Renderer selection (`src/react/vector.ts`):** `HOSTED_STATE_TILES` maps a state
+slug → its `.pmtiles`; `stateTilesUrl(name)` resolves the URL. The Leaflet
+(`IndiaLeafletMap`) and React Native (`IndiaMapNative`) renderers auto-pick the
+focused state's own tiles when `vector` is on and `stateName` is set; unhosted
+states fall back to the default TG+AP set. **Add a state's slug to
+`HOSTED_STATE_TILES` only after its tiles are published**, and keep the
+`test/vector.test.ts` unhosted-case assertions synthetic (not real states).
+
+**Coverage so far (Nov 2026):** TG+AP (`beyond-tgap`), Karnataka, Tamil Nadu,
+Kerala, Maharashtra, Gujarat. ~29 states/UTs remain; add them one at a time.
+
 **Operational gotchas:**
-- **Geofabrik downloads are flaky** — the OSM data servers return transient
-  redirect loops / connection resets. The Oct 2026 scheduled run failed this way
-  (`curl: (47) Maximum redirects followed`). `dl()` in `build-tiles.sh` is
-  hardened against it: descriptive User-Agent, `--max-redirs 10`, and an outer
-  retry loop that validates a minimum downloaded size before accepting the file.
-  The root cause is upstream and intermittent, not our code — a plain re-run
-  usually succeeds.
-- **The cron only runs from `main`.** A fix on a branch does not affect the
-  scheduled run until merged.
+- **Geofabrik is flaky** — it both returns redirect loops (the Oct 2026 cron:
+  `curl (47): Maximum redirects followed`) and refuses connections entirely (the
+  Nov 2026 Maharashtra/Gujarat builds: `curl (7): Failed to connect`). `dl()` in
+  `build-tiles.sh` hardens each fetch (User-Agent, `--max-redirs 10`, retry loop
+  with min-size validation), and `dl_any()` falls back from Geofabrik to the **OSM
+  France mirror** (`download.openstreetmap.fr/extracts/asia/india.osm.pbf`). Root
+  cause is upstream and intermittent — a plain re-run usually succeeds.
+- **The cron only runs from `main`.** A branch fix doesn't affect the schedule
+  until merged.
 - GitHub **auto-disables scheduled workflows after 60 days of repo inactivity**
-  (it emails to re-enable). Keep the repo active or re-enable when prompted.
+  (it emails to re-enable).
+- When scripting a watch, read the run's real conclusion
+  (`gh run view <id> --json conclusion`) — a background watcher's exit code can
+  reflect the last piped command, not the run.
 
 ## Previewing the map
 

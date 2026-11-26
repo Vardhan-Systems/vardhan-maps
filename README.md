@@ -1,5 +1,9 @@
 # vardhan-maps
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Vardhan-Systems/vardhan-maps/main/docs/assets/hero.png" alt="Map of India — all 36 states and union territories, GoI-aligned" width="440">
+</p>
+
 [![npm version](https://img.shields.io/npm/v/vardhan-maps?color=cb3837&logo=npm)](https://www.npmjs.com/package/vardhan-maps)
 [![npm downloads](https://img.shields.io/npm/dm/vardhan-maps?color=blue)](https://www.npmjs.com/package/vardhan-maps)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/vardhan-maps?label=minzip)](https://bundlephobia.com/package/vardhan-maps)

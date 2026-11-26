@@ -12,6 +12,18 @@
   border: 1px solid var(--vp-c-divider);
   background: #eef2f6;
   overflow: hidden;
+  /* Leaflet panes/controls use z-index up to 1000, which otherwise paints OVER
+     VitePress's sticky nav when the map scrolls under it. Create a self-contained
+     stacking context so those high z-indexes stay scoped to the map. */
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+}
+/* The Leaflet root sits inside the canvas; never let it escape the rounded box. */
+.map-demo__canvas .leaflet-container {
+  height: 100%;
+  width: 100%;
+  background: #eef2f6;
 }
 .map-demo__cap {
   font-size: 13px;

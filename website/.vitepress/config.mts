@@ -23,7 +23,6 @@ export default defineConfig({
     ["meta", { property: "og:image", content: "https://vardhan-systems.github.io/vardhan-maps/hero.png" }],
   ],
   themeConfig: {
-    logo: "/favicon.svg",
     nav: [
       { text: "Guide", link: "/guide/getting-started" },
       { text: "Vector basemap", link: "/guide/vector-basemap" },

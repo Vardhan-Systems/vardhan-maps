@@ -1,10 +1,22 @@
 # vardhan-maps
 
+[![npm version](https://img.shields.io/npm/v/vardhan-maps?color=cb3837&logo=npm)](https://www.npmjs.com/package/vardhan-maps)
+[![npm downloads](https://img.shields.io/npm/dm/vardhan-maps?color=blue)](https://www.npmjs.com/package/vardhan-maps)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/vardhan-maps?label=minzip)](https://bundlephobia.com/package/vardhan-maps)
+[![types](https://img.shields.io/npm/types/vardhan-maps)](https://www.npmjs.com/package/vardhan-maps)
+[![license](https://img.shields.io/npm/l/vardhan-maps?color=green)](./LICENSE)
+[![CI](https://github.com/Vardhan-Systems/vardhan-maps/actions/workflows/ci.yml/badge.svg)](https://github.com/Vardhan-Systems/vardhan-maps/actions/workflows/ci.yml)
+[![GitHub stars](https://img.shields.io/github/stars/Vardhan-Systems/vardhan-maps?style=social)](https://github.com/Vardhan-Systems/vardhan-maps)
+
 A **standard India map** — state and district boundaries, aligned to the official
 Government of India depiction — as **GeoJSON data**, dependency-free **SVG** and
-**Leaflet/React** renderers, and an optional **self-hosted light-grey vector
-basemap** (roads + labels, no POI icons) that works out of the box. Built on
-OpenStreetMap.
+**Leaflet/React** renderers (plus **React Native**), and an optional **self-hosted
+light-grey vector basemap** (roads + labels, no POI icons) covering **all 36
+states/UTs** that works out of the box. Built on OpenStreetMap.
+
+**All 36 states/UTs + 787 districts · zero-config vector basemap · SVG · Leaflet · React · React Native · choropleth · AI-friendly map spec.**
+
+> ⭐ **Find this useful? [Star it on GitHub](https://github.com/Vardhan-Systems/vardhan-maps)** — it genuinely helps other developers find a GoI-aligned India map.
 
 > ⚠️ **Boundary disclaimer.** Boundaries are a best-effort approximation of the
 > official GoI depiction, derived from OpenStreetMap and editorially corrected.

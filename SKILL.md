@@ -28,15 +28,16 @@ import "maplibre-gl/dist/maplibre-gl.css"; // REQUIRED when using `vector`
 <IndiaMap mode="leaflet" level="both" vector style={{ position: "absolute", inset: 0 }} />
 ```
 
-`vector` renders Vardhan Systems' hosted **Telangana + Andhra Pradesh** basemap with
-zero config (light-grey, roads + place/road labels, **no POI icons**). It's shorthand
+`vector` renders Vardhan Systems' hosted basemap with zero config — it covers **all
+36 states/UTs** (light-grey, roads + place/road labels, **no POI icons**), and when
+you focus a state (`stateName`) that state's own tiles load automatically. Shorthand
 for `vectorStyle={vectorBasemapStyle()}`.
 
 Peer deps for the vector basemap (all optional; install when you use it):
 
 ```bash
 # maplibre-gl v4 works as-is; v6 also works but REQUIRES `workerUrl` (see footgun #1).
-npm add leaflet react maplibre-gl@^4 @maplibre/maplibre-gl-leaflet pmtiles
+npm add leaflet react maplibre-gl @maplibre/maplibre-gl-leaflet pmtiles
 ```
 
 ## 🚨 Footguns (these cost real debugging time)
@@ -131,8 +132,9 @@ const svg = await renderSpecToSvg(spec);     // dependency-free SVG (static prev
 
 ## Your own tiles (any region / self-hosting)
 
-The default tiles cover only TG+AP. For other regions, build your own and pass the
-URLs — `pmtilesUrl`/`glyphsUrl` are the only required-in-practice fields:
+The default tiles cover **all 36 Indian states/UTs** (auto-selected by the focused
+`stateName`). For a region outside India, build your own and pass the URLs —
+`pmtilesUrl`/`glyphsUrl` are the only required-in-practice fields:
 
 ```tsx
 import { IndiaMap, vectorBasemapStyle } from "vardhan-maps/react";

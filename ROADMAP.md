@@ -1,5 +1,18 @@
 # Roadmap
 
+## Shipped (v0.20–v0.21)
+
+- **Full-India vector basemap, per state.** The hosted basemap now covers **all 36
+  states/UTs** — one `.pmtiles` per state — and the Leaflet (`IndiaLeafletMap`) and
+  React Native (`IndiaMapNative`) renderers **auto-select the focused state's own
+  tiles** when `vector` is on (`stateTilesUrl` / `HOSTED_STATE_TILES`, exported from
+  `/react` and `/react-native`). v0.20 added the per-state selection; v0.21 completed
+  coverage to all 36.
+- **Monthly auto-refresh of the hosted tiles.** A GitHub Actions cron rebuilds the
+  tiles from current OpenStreetMap data each month (per-state, built in parallel), so
+  roads stay recent with no package release. Downloads fall back from Geofabrik to the
+  OSM France mirror for resilience.
+
 ## Shipped (v0.18, on npm)
 
 - **maplibre-gl v6 support** — `workerUrl` prop points MapLibre at a self-hosted
@@ -31,15 +44,16 @@
 - **Self-hosted vector basemap** — `vectorBasemapStyle()` + the `vector` prop: a
   light-grey OpenStreetMap basemap (roads + place/road labels, **no POI icons**),
   MapLibre GL under Leaflet, English (`name:latin`) labels. Zero-config default
-  (Vardhan-hosted Telangana + Andhra Pradesh tiles) or your own `.pmtiles`.
+  (Vardhan-hosted tiles — now all 36 states/UTs, see top) or your own `.pmtiles`.
 - Tests (vitest) + CI; published to npm.
 
 ## Next
 
-- **Auto-refresh** the hosted vector tiles from current OSM (scheduled rebuild) so
-  roads stay recent without a package release.
-- **Wider default coverage** — the default vector tiles are TG+AP only; add more
-  regions / an all-India build.
+- **Tighter clipping for dispersed UTs** — tiles are clipped by bounding box, so a
+  UT whose enclaves are far apart over-covers (e.g. Puducherry); clip to the actual
+  state polygon to shrink those files.
+- **Boundary-data refresh from newest OSM** — re-fetch state/district boundaries to
+  pick up recently created districts.
 - Independent review of the GoI border corrections against the official depiction.
 - Name-normalisation utils + verification against a canonical state/district list.
 - Per-year district vintages; a hosted demo site.
@@ -49,5 +63,6 @@
 - Boundaries are an approximation of the GoI depiction, **not** an official/survey map.
 - District vintages track OSM currency (a newly split district may lag).
 - ESM-only (CommonJS consumers load via dynamic `import()`).
-- The default vector basemap covers **Telangana + Andhra Pradesh** only; pass your
-  own tiles for other regions.
+- Basemap tiles are clipped by **bounding box**, so a geographically dispersed UT
+  over-covers (e.g. Puducherry's enclaves span a large box); tiles still render
+  correctly, just larger than the territory. (Mainland states clip cleanly.)

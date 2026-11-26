@@ -1,0 +1,30 @@
+:root {
+  --vp-c-brand-1: #2563eb;
+  --vp-c-brand-2: #1d4ed8;
+  --vp-c-brand-3: #1e40af;
+  --vp-home-hero-name-color: #2563eb;
+}
+
+.map-demo__canvas {
+  height: 460px;
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--vp-c-divider);
+  background: #eef2f6;
+  overflow: hidden;
+}
+.map-demo__cap {
+  font-size: 13px;
+  color: var(--vp-c-text-2);
+  margin-top: 8px;
+}
+.map-demo__err {
+  color: var(--vp-c-danger-1);
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+/* Leaflet tooltip readability in dark mode */
+.leaflet-tooltip {
+  color: #0f172a;
+}

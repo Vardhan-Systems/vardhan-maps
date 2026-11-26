@@ -1,0 +1,7 @@
+# Isolated docs workspace (not part of the root package's workspace).
+packages:
+  - "."
+allowBuilds:
+  esbuild: true
+minimumReleaseAgeExclude:
+  - vardhan-maps@0.21.0

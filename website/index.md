@@ -40,9 +40,11 @@ features:
 
 ## Try it live
 
-Below is a **real, interactive** India map rendered from `vardhan-maps/data` — hover a state, pan and zoom. No screenshot; it's the actual package running in your browser.
+Below is a **real, interactive** India map rendered from the published package —
+**click any state or UT to drill in** and see its roads, water, labels and district
+boundaries. No screenshot; it's `vardhan-maps` running in your browser.
 
-<MapDemo />
+<StateExplorer />
 
 ## Install
 

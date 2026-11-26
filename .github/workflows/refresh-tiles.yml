@@ -1,10 +1,12 @@
 name: Refresh vector basemap tiles
 
-# Rebuilds a self-hosted basemap tile set (per state) from CURRENT OpenStreetMap
-# data and re-uploads it to Cloudflare R2, so the hosted basemap stays fresh
-# without a package release. The scheduled run (no input) rebuilds the original
-# Telangana + Andhra Pradesh set; `workflow_dispatch` with a `state` input builds
-# that one state (beyond-<slug>.pmtiles). Monthly, plus the manual trigger.
+# Rebuilds self-hosted basemap tile sets (one `.pmtiles` per state) from CURRENT
+# OpenStreetMap data and uploads them to Cloudflare R2, independent of any package
+# release. The scheduled run (no input) rebuilds the original Telangana + Andhra
+# Pradesh set. `workflow_dispatch` builds specific states:
+#   - `state`  — a single state, e.g. Karnataka → beyond-karnataka.pmtiles
+#   - `states` — comma-separated states built IN PARALLEL (a matrix), or "all"
+#                for every state/UT. Takes precedence over `state`.
 #
 # Required repo secrets (Settings → Secrets and variables → Actions):
 #   R2_ACCESS_KEY_ID       — R2 API token access key id
@@ -17,7 +19,11 @@ on:
   workflow_dispatch:
     inputs:
       state:
-        description: "State to build (blank = Telangana + Andhra Pradesh default set). E.g. Karnataka"
+        description: "Single state to build (blank = Telangana + Andhra Pradesh default set). E.g. Karnataka"
+        required: false
+        default: ""
+      states:
+        description: "Comma-separated states to build in parallel (overrides 'state'); 'all' = every state/UT"
         required: false
         default: ""
 
@@ -27,14 +33,30 @@ concurrency:
 
 env:
   R2_BUCKET: beyond-basemap
-  # PMTILES (the object name) is resolved per-run from the `state` input by the
-  # "Resolve target" step below: a state builds beyond-<slug>.pmtiles, and the
-  # default (scheduled, no input) run builds beyond-tgap.pmtiles as before.
 
 jobs:
+  # Turn the inputs into the list of states to build (one tile set each).
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.gen.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: gen
+        env:
+          STATES: ${{ github.event.inputs.states }}
+          STATE: ${{ github.event.inputs.state }}
+        run: node scripts/states-matrix.mjs >> "$GITHUB_OUTPUT"
+
   build-and-upload:
+    needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    strategy:
+      fail-fast: false # one state's failure must not cancel the others
+      max-parallel: 10
+      matrix:
+        state: ${{ fromJson(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -53,12 +75,12 @@ jobs:
 
       - name: Resolve target .pmtiles name
         run: |
-          OUT=$(node scripts/state-tiles-meta.mjs "${{ github.event.inputs.state }}" | sed -n 's/^OUT=//p')
+          OUT=$(node scripts/state-tiles-meta.mjs "${{ matrix.state }}" | sed -n 's/^OUT=//p')
           echo "PMTILES=$OUT" >> "$GITHUB_ENV"
           echo "Will build and upload: $OUT"
 
       - name: Build tiles
-        run: bash scripts/build-tiles.sh /mnt/tiles "${{ github.event.inputs.state }}"
+        run: bash scripts/build-tiles.sh /mnt/tiles "${{ matrix.state }}"
 
       - name: Upload to R2
         env:

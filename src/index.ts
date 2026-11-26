@@ -21,4 +21,4 @@ export type {
 } from "./data/types";
 export type { Resolution } from "./data";
 
-export const VERSION = "0.20.0";
+export const VERSION = "0.21.0";

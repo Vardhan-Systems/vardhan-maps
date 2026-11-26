@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.21.0
+
+- **Full-India vector basemaps.** Every one of the **36 states/UTs** now has a
+  self-hosted basemap — the remaining 29 (Rajasthan, Madhya Pradesh, Uttar
+  Pradesh, the North-East, the UTs, …) were added on top of the first six.
+  `IndiaLeafletMap` and the React Native renderer auto-select any focused state's
+  own tiles when the vector basemap is on, so a map focused on any Indian state
+  now renders that state's roads. No API change from 0.20.0 — just complete
+  coverage via `HOSTED_STATE_TILES` / `stateTilesUrl`.
+
 ## 0.20.0
 
 - **Per-state vector basemaps.** The self-hosted basemap now ships as one

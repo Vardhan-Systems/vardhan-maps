@@ -5,6 +5,7 @@ import {
   VARDHAN_TILES_ORIGIN,
   vectorBasemapStyle,
 } from "../src/react/vector";
+import { getStates } from "../src/data";
 
 describe("stateTilesUrl", () => {
   it("returns each hosted state's own .pmtiles URL", () => {
@@ -38,6 +39,13 @@ describe("stateTilesUrl", () => {
     for (const file of Object.values(HOSTED_STATE_TILES)) {
       expect(file).toMatch(/^beyond-[a-z0-9-]+\.pmtiles$/);
     }
+  });
+
+  it("resolves tiles for every state/UT in the dataset (full India coverage)", () => {
+    const unhosted = getStates()
+      .map((f) => f.properties.name)
+      .filter((name) => stateTilesUrl(name) === undefined);
+    expect(unhosted).toEqual([]);
   });
 });
 

@@ -14,9 +14,15 @@
           Live — <strong>click any state or UT</strong> to drill in and see its roads,
           water &amp; labels (the self-hosted vector basemap) with district boundaries.
         </template>
+        <template v-else-if="selected">
+          <strong>{{ current }} › {{ selected }}</strong> — zoomed in over the
+          district's roads. <strong>Scroll / use +</strong> to see every street;
+          click another district, or <strong>← Back to India</strong>.
+        </template>
         <template v-else>
-          <strong>{{ current }}</strong> — self-hosted OpenStreetMap vector basemap
-          (roads + water + labels) with district boundaries. Pan &amp; zoom, or go back.
+          <strong>{{ current }}</strong> — self-hosted vector basemap (roads + water
+          + labels). <strong>Click a district</strong> (or scroll to zoom), then see
+          all its roads. Or go back.
         </template>
       </p>
     </div>
@@ -30,13 +36,33 @@ const el = ref<HTMLElement | null>(null);
 const error = ref("");
 const mode = ref<"india" | "state">("india");
 const current = ref("");
+const selected = ref(""); // selected district name
 const loading = ref(false);
 
 let L: any,
   map: any,
   statesLayer: any = null,
   glLayer: any = null,
-  districtsLayer: any = null;
+  districtsLayer: any = null,
+  selectedDistrict: any = null;
+
+// A fully transparent fill keeps the basemap visible but makes the WHOLE district
+// clickable — an unfilled path only responds on its 1px boundary line.
+const DISTRICT_STYLE = {
+  color: "#334155",
+  weight: 1,
+  opacity: 0.75,
+  fill: true,
+  fillColor: "#2563eb",
+  fillOpacity: 0,
+};
+const DISTRICT_SELECTED = {
+  color: "#2563eb",
+  weight: 3,
+  fill: true,
+  fillColor: "#2563eb",
+  fillOpacity: 0.12,
+};
 let statesData: any,
   vectorBasemapStyle: any,
   stateTilesUrl: any,
@@ -102,6 +128,8 @@ async function drillInto(name: string, bounds: any) {
   try {
     mode.value = "state";
     current.value = name;
+    selected.value = "";
+    selectedDistrict = null;
     loading.value = true;
 
     if (statesLayer) {
@@ -109,6 +137,8 @@ async function drillInto(name: string, bounds: any) {
       statesLayer = null;
     }
     map.fitBounds(bounds, { padding: [20, 20] });
+    // Once you've committed to a state, let the wheel zoom in to see every road.
+    map.scrollWheelZoom.enable();
 
     // The state's own self-hosted vector basemap (roads + water + labels).
     const url = stateTilesUrl(name);
@@ -120,11 +150,20 @@ async function drillInto(name: string, bounds: any) {
     // District boundaries on top (lines only, hover for the name).
     const dc = await loadDistricts(name);
     districtsLayer = L.geoJSON(dc, {
-      style: () => ({ color: "#334155", weight: 1, fill: false, opacity: 0.75 }),
+      style: () => ({ ...DISTRICT_STYLE }),
       onEachFeature: (f: any, dl: any) => {
-        dl.bindTooltip(f.properties.name, { sticky: true });
-        dl.on("mouseover", () => dl.setStyle({ weight: 2, color: "#2563eb" }));
-        dl.on("mouseout", () => dl.setStyle({ weight: 1, color: "#334155" }));
+        const dname = f.properties.name;
+        dl.bindTooltip(dname, { sticky: true });
+        dl.on("mouseover", () => {
+          if (dl !== selectedDistrict) dl.setStyle({ weight: 2, color: "#2563eb", fillOpacity: 0.06 });
+        });
+        dl.on("mouseout", () => {
+          if (dl !== selectedDistrict) dl.setStyle(DISTRICT_STYLE);
+        });
+        dl.on("click", (e: any) => {
+          L.DomEvent.stop(e);
+          selectDistrict(dl, dname);
+        });
       },
     }).addTo(map);
     loading.value = false;
@@ -132,6 +171,18 @@ async function drillInto(name: string, bounds: any) {
     error.value = "Could not load " + name + ": " + (e?.message ?? e);
     loading.value = false;
   }
+}
+
+function selectDistrict(dl: any, name: string) {
+  if (selectedDistrict && selectedDistrict !== dl) selectedDistrict.setStyle(DISTRICT_STYLE);
+  selectedDistrict = dl;
+  dl.setStyle(DISTRICT_SELECTED);
+  dl.bringToFront();
+  // Zoom deep enough that the full street network renders (minor roads appear at
+  // z12+, road-name labels at z13+). Small districts reach street level; larger
+  // ones fit lower — scroll/zoom in to see every road.
+  map.fitBounds(dl.getBounds(), { padding: [20, 20], maxZoom: 13 });
+  selected.value = name;
 }
 
 function backToIndia() {
@@ -143,8 +194,11 @@ function backToIndia() {
     map.removeLayer(districtsLayer);
     districtsLayer = null;
   }
+  selectedDistrict = null;
+  selected.value = "";
   mode.value = "india";
   current.value = "";
+  map.scrollWheelZoom.disable();
   drawStates();
   map.setView(INDIA_CENTER, INDIA_ZOOM);
 }

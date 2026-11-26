@@ -3,18 +3,20 @@
 These maps are **real** — the published `vardhan-maps` package running in your
 browser, not screenshots.
 
-## India — interactive choropleth
+## Click a state to drill in
 
-State boundaries from `vardhan-maps/data`, drawn with Leaflet. Hover a state; pan
-and zoom.
+**Click any state or UT** and the map drills into it — loading that state's
+self-hosted vector basemap (roads, water, labels) with its district boundaries on
+top. Hit **← Back to India** to return. Every one of the 36 states/UTs works.
 
-<MapDemo />
+<StateExplorer />
 
 ```tsx
 import { IndiaMap } from "vardhan-maps/react";
 import "leaflet/dist/leaflet.css";
 
-<IndiaMap mode="leaflet" level="state" style={{ height: 460 }} />
+// Overview, then focus a state → its own tiles + districts:
+<IndiaMap mode="leaflet" level="both" stateName="Karnataka" vector />
 ```
 
 ## A state's self-hosted vector basemap

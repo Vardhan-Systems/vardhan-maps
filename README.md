@@ -10,6 +10,7 @@
 [![types](https://img.shields.io/npm/types/vardhan-maps)](https://www.npmjs.com/package/vardhan-maps)
 [![license](https://img.shields.io/npm/l/vardhan-maps?color=green)](./LICENSE)
 [![CI](https://github.com/Vardhan-Systems/vardhan-maps/actions/workflows/ci.yml/badge.svg)](https://github.com/Vardhan-Systems/vardhan-maps/actions/workflows/ci.yml)
+[![docs](https://img.shields.io/badge/docs-live%20demo-2563eb)](https://vardhan-systems.github.io/vardhan-maps/)
 [![GitHub stars](https://img.shields.io/github/stars/Vardhan-Systems/vardhan-maps?style=social)](https://github.com/Vardhan-Systems/vardhan-maps)
 
 A **standard India map** — state and district boundaries, aligned to the official
@@ -19,6 +20,11 @@ light-grey vector basemap** (roads + labels, no POI icons) covering **all 36
 states/UTs** that works out of the box. Built on OpenStreetMap.
 
 **All 36 states/UTs + 787 districts · zero-config vector basemap · SVG · Leaflet · React · React Native · choropleth · AI-friendly map spec.**
+
+### 📖 [Documentation & interactive live demo →](https://vardhan-systems.github.io/vardhan-maps/)
+
+Full guide, API, and **live maps you can click into** at
+**[vardhan-systems.github.io/vardhan-maps](https://vardhan-systems.github.io/vardhan-maps/)**.
 
 > ⭐ **Find this useful? [Star it on GitHub](https://github.com/Vardhan-Systems/vardhan-maps)** — it genuinely helps other developers find a GoI-aligned India map.
 

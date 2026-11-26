@@ -40,3 +40,42 @@
 .leaflet-tooltip {
   color: #0f172a;
 }
+
+/* StateExplorer: the wrap holds the map + the overlay controls. Isolate it so
+   neither the Leaflet panes nor the back button leak over the sticky nav. */
+.map-demo__wrap {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+}
+.map-demo__back {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  background: var(--vp-c-bg);
+  color: var(--vp-c-text-1);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.14);
+}
+.map-demo__back:hover {
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1);
+}
+.map-demo__loading {
+  position: absolute;
+  top: 10px;
+  left: 54px;
+  z-index: 10;
+  background: var(--vp-c-bg);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--vp-c-text-2);
+}

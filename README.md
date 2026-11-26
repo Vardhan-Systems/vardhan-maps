@@ -11,11 +11,12 @@ OpenStreetMap.
 > **This is not an official or survey-grade map of India.** See
 > [ATTRIBUTION.md](./ATTRIBUTION.md).
 
-> ✅ **Status: v0.6, on npm.** Ships **all 36 states/UTs + 787 districts**,
-> generated from OpenStreetMap, with GoI border patches (J&K includes PoK; Ladakh
-> includes Gilgit-Baltistan + Aksai Chin). Two resolution tiers (`low`/`high`) +
-> lazy per-state district loading; choropleth + tooltips; live-tracking markers &
-> routes; and a self-hosted OSM **vector basemap**.
+> ✅ **On npm.** Ships **all 36 states/UTs + 787 districts**, generated from
+> OpenStreetMap, with GoI border patches (J&K includes PoK; Ladakh includes
+> Gilgit-Baltistan + Aksai Chin). Two resolution tiers (`low`/`high`) + lazy
+> per-state district loading; choropleth + tooltips; live-tracking markers &
+> routes; and a self-hosted OSM **vector basemap covering all 36 states/UTs** —
+> each state's roads auto-selected when you focus it.
 
 ## Install
 
@@ -24,11 +25,13 @@ npm add vardhan-maps
 # for the Leaflet renderer (peer deps):
 npm add leaflet react
 # for the vector basemap (peer deps):
-npm add maplibre-gl@^4 @maplibre/maplibre-gl-leaflet pmtiles
+npm add maplibre-gl @maplibre/maplibre-gl-leaflet pmtiles
 ```
 
-> **maplibre-gl v3 or v4 only** — v5+ is not yet compatible with the pmtiles source
-> loading through the Leaflet adapter.
+> **maplibre-gl v3, v4, or v6** (peer range `>=3 <5 || >=6.4.1`) — **v5 is not
+> supported** (its pmtiles source loading through the Leaflet adapter). v6 also
+> needs a one-line `workerUrl` under some bundlers — see the vector basemap
+> section below.
 
 The package ships four independent entry points (`.` / `/data` / `/svg` / `/react`),
 so you only pull what you use. All peers are **optional** — you only need them for
@@ -209,8 +212,24 @@ import { IndiaMap } from "vardhan-maps/react";
 import "leaflet/dist/leaflet.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-// Zero-config: Vardhan Systems' hosted Telangana + Andhra Pradesh basemap.
+// Zero-config: Vardhan Systems' hosted basemap (covers all 36 states/UTs).
 <IndiaMap mode="leaflet" level="both" vector style={{ height: 520 }} />
+
+// Focus a state → that state's own tiles load automatically:
+<IndiaMap mode="leaflet" level="district" stateName="Karnataka" vector />
+```
+
+**Per-state tiles, auto-selected.** The basemap is hosted as one `.pmtiles` per
+state. When `vector` is on and you focus a state (`stateName`), the renderer
+loads that state's own tiles; with no focus (or a state that isn't hosted yet) it
+falls back to the default set. The map works out of the box — you never pick a
+file by hand. The resolver is exported if you want it directly:
+
+```ts
+import { stateTilesUrl, HOSTED_STATE_TILES } from "vardhan-maps/react";
+
+stateTilesUrl("Karnataka");   // "https://maps.vardhansystems.in/beyond-karnataka.pmtiles"
+HOSTED_STATE_TILES;           // { karnataka: "beyond-karnataka.pmtiles", … } — every state/UT
 ```
 
 > **maplibre-gl v6:** v3/v4 work out of the box; **v6 needs `workerUrl`.** Under
@@ -255,7 +274,9 @@ from an OSM extract with [Planetiler](https://github.com/onthegomap/planetiler) 
 [tilemaker](https://github.com/systemed/tilemaker), host it (plus a `Noto Sans
 Regular` glyph fontstack) anywhere that serves **HTTP range requests + CORS**
 (Cloudflare R2, S3, …), and pass the URLs to `vectorBasemapStyle`. The default
-Vardhan tiles cover **Telangana + Andhra Pradesh** only.
+Vardhan tiles cover **all 36 Indian states/UTs** (one `.pmtiles` per state,
+auto-selected per the focused `stateName`) and are refreshed from current OSM
+data monthly.
 
 ### Attribution
 

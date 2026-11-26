@@ -104,11 +104,14 @@ independent of any package release. Each state builds small enough for the free
 GitHub Actions runner, so coverage extends across India one state at a time.
 
 - **Workflow:** `.github/workflows/refresh-tiles.yml` — cron `0 3 1 * *` (03:00
-  UTC on the 1st of each month) + manual `workflow_dispatch` with a `state` input.
-  The scheduled run (no input) rebuilds the original Telangana + Andhra Pradesh
-  set; `workflow_dispatch` with e.g. `state=Karnataka` builds that one state.
-  GitHub often delays scheduled runs by hours; that is normal. Build one on demand:
-  `gh workflow run refresh-tiles.yml --ref <branch> -f state="Karnataka"`.
+  UTC on the 1st of each month) + manual `workflow_dispatch`. A `plan` job
+  (`scripts/states-matrix.mjs`) turns the inputs into a build list; a matrix
+  `build-and-upload` job builds one state per entry in parallel (`fail-fast:
+  false`, `max-parallel: 10`). Inputs: `state` (single) or `states`
+  (comma-separated, or `all`). The scheduled run (no input) rebuilds TG+AP.
+  Examples:
+  `gh workflow run refresh-tiles.yml --ref <branch> -f state="Karnataka"` (one),
+  `... -f states="Goa,Punjab,Odisha"` (several in parallel).
 - **Build script:** `scripts/build-tiles.sh [workdir] [state]` — India extract →
   `osmium` clip to the state's bbox → **Planetiler** (OpenMapTiles schema) →
   `beyond-<slug>.pmtiles`. No state arg = the TG+AP set (`beyond-tgap.pmtiles`).
@@ -130,8 +133,9 @@ states fall back to the default TG+AP set. **Add a state's slug to
 `HOSTED_STATE_TILES` only after its tiles are published**, and keep the
 `test/vector.test.ts` unhosted-case assertions synthetic (not real states).
 
-**Coverage so far (Nov 2026):** TG+AP (`beyond-tgap`), Karnataka, Tamil Nadu,
-Kerala, Maharashtra, Gujarat. ~29 states/UTs remain; add them one at a time.
+**Coverage (Nov 2026): all 36 states/UTs.** TG+AP share `beyond-tgap.pmtiles`;
+every other state/UT has its own `beyond-<slug>.pmtiles`. The 29 beyond the first
+batch were built in one parallel matrix run (`-f states="…"`).
 
 **Operational gotchas:**
 - **Geofabrik is flaky** — it both returns redirect loops (the Oct 2026 cron:
@@ -148,6 +152,11 @@ Kerala, Maharashtra, Gujarat. ~29 states/UTs remain; add them one at a time.
 - When scripting a watch, read the run's real conclusion
   (`gh run view <id> --json conclusion`) — a background watcher's exit code can
   reflect the last piped command, not the run.
+- **Clipping is by bounding box, not polygon.** A geographically dispersed UT has
+  a huge bbox and a correspondingly large file — e.g. Puducherry (~326 MB)
+  because its enclaves (Puducherry, Karaikal, Yanam, Mahe) span from the west to
+  the east coast. The tiles render fine; they just over-cover. Tiny compact UTs
+  (Lakshadweep ~1 MB, Chandigarh ~3 MB) are correctly small.
 
 ## Previewing the map
 
